@@ -136,9 +136,14 @@ export async function getWebsiteData(): Promise<Website | null> {
   }
 }
 
-export async function getArticles(): Promise<Article[]> {
+export async function getArticles(locale?: string): Promise<Article[]> {
   try {
-    const url = `${config.cmsUrl}/api/articles?filters[website][apiName][$eq]=${config.websiteApiName}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100`;
+    let url = `${config.cmsUrl}/api/articles?filters[website][apiName][$eq]=${config.websiteApiName}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100`;
+
+    // Add locale parameter if provided
+    if (locale) {
+      url += `&locale=${locale}`;
+    }
 
     const result: CMSResponse<Article[]> = await trackHttpRequest(url, {
       headers: {
@@ -154,9 +159,14 @@ export async function getArticles(): Promise<Article[]> {
   }
 }
 
-export async function getCategories(): Promise<Category[]> {
+export async function getCategories(locale?: string): Promise<Category[]> {
   try {
-    const url = `${config.cmsUrl}/api/categories?filters[website][apiName][$eq]=${config.websiteApiName}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100`;
+    let url = `${config.cmsUrl}/api/categories?filters[website][apiName][$eq]=${config.websiteApiName}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100`;
+
+    // Add locale parameter if provided
+    if (locale) {
+      url += `&locale=${locale}`;
+    }
 
     const result: CMSResponse<Category[]> = await trackHttpRequest(url, {
       headers: {
