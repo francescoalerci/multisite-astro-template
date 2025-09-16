@@ -1,5 +1,72 @@
 import { config } from '../config';
 
+interface HttpRequest {
+  url: string;
+  method: string;
+  status: number;
+  duration: number;
+  timestamp: Date;
+  response?: any;
+  error?: string;
+}
+
+// Global request tracker for development
+const httpRequests: HttpRequest[] = [];
+
+export function getHttpRequests(): HttpRequest[] {
+  return httpRequests;
+}
+
+async function trackHttpRequest<T>(url: string, requestInit: RequestInit): Promise<T> {
+  const startTime = Date.now();
+  const request: HttpRequest = {
+    url,
+    method: requestInit.method || 'GET',
+    status: 0,
+    duration: 0,
+    timestamp: new Date(),
+  };
+
+  try {
+    const response = await fetch(url, requestInit);
+    const endTime = Date.now();
+
+    request.status = response.status;
+    request.duration = endTime - startTime;
+
+    if (!response.ok) {
+      request.error = `HTTP ${response.status} ${response.statusText}`;
+      throw new Error(request.error);
+    }
+
+    const data = await response.json();
+    request.response = data;
+
+    if (config.isDevelopment) {
+      httpRequests.unshift(request); // Add to beginning
+      // Keep only last 20 requests
+      if (httpRequests.length > 20) {
+        httpRequests.length = 20;
+      }
+    }
+
+    return data;
+  } catch (error) {
+    const endTime = Date.now();
+    request.duration = endTime - startTime;
+    request.error = error instanceof Error ? error.message : 'Unknown error';
+
+    if (config.isDevelopment) {
+      httpRequests.unshift(request);
+      if (httpRequests.length > 20) {
+        httpRequests.length = 20;
+      }
+    }
+
+    throw error;
+  }
+}
+
 interface Website {
   id: number;
   documentId: string;
@@ -43,18 +110,12 @@ export async function getWebsiteData(): Promise<Website | null> {
   try {
     const url = `${config.cmsUrl}/api/websites?filters[apiName][$eq]=${config.websiteApiName}`;
 
-    const response = await fetch(url, {
+    const result: CMSResponse<Website[]> = await trackHttpRequest(url, {
       headers: {
         'Authorization': `Bearer ${config.cmsApiToken}`,
         'Content-Type': 'application/json',
       },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result: CMSResponse<Website[]> = await response.json();
 
     return result.data.length > 0 ? result.data[0] : null;
   } catch (error) {
@@ -67,18 +128,12 @@ export async function getArticles(): Promise<Article[]> {
   try {
     const url = `${config.cmsUrl}/api/articles?filters[website][apiName][$eq]=${config.websiteApiName}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100`;
 
-    const response = await fetch(url, {
+    const result: CMSResponse<Article[]> = await trackHttpRequest(url, {
       headers: {
         'Authorization': `Bearer ${config.cmsApiToken}`,
         'Content-Type': 'application/json',
       },
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result: CMSResponse<Article[]> = await response.json();
 
     return result.data;
   } catch (error) {

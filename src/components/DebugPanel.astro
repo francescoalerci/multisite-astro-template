@@ -1,0 +1,207 @@
+---
+import { config } from '../config';
+import { getHttpRequests } from '../services/cms';
+
+interface Props {
+  websiteData?: any;
+  articles?: any[];
+  additionalInfo?: Record<string, any>;
+}
+
+const { websiteData, articles = [], additionalInfo = {} } = Astro.props;
+const httpRequests = getHttpRequests();
+
+// Only render in development
+if (!config.isDevelopment) {
+  return null;
+}
+---
+
+{/* Debug Panel */}
+<div id="debug-panel" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; font-family: monospace;">
+  <div style="background: #1f2937; color: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); max-width: 400px; border: 1px solid #374151;">
+    {/* Header */}
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 1rem 0.5rem; border-bottom: 1px solid #374151;">
+      <h4 style="margin: 0; color: #f9fafb; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+        🔧 Debug
+        <span style="font-size: 0.7rem; background: #059669; padding: 0.2rem 0.4rem; border-radius: 3px;">DEV</span>
+      </h4>
+      <button onclick="toggleDebugPanel(false)"
+              style="background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 1.2rem; padding: 0; line-height: 1;">×</button>
+    </div>
+
+    {/* Tabs */}
+    <div style="display: flex; border-bottom: 1px solid #374151;">
+      <button onclick="switchDebugTab('info')" id="tab-info"
+              style="flex: 1; background: #374151; border: none; color: white; padding: 0.5rem; cursor: pointer; font-size: 0.75rem; border-right: 1px solid #4b5563;">
+        Info
+      </button>
+      <button onclick="switchDebugTab('requests')" id="tab-requests"
+              style="flex: 1; background: #1f2937; border: none; color: #9ca3af; padding: 0.5rem; cursor: pointer; font-size: 0.75rem;">
+        HTTP ({httpRequests.length})
+      </button>
+    </div>
+
+    {/* Info Tab Content */}
+    <div id="debug-content-info" style="padding: 1rem; display: grid; gap: 0.5rem; font-size: 0.75rem; max-height: 400px; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #d1d5db;">ENV:</span>
+        <strong style="color: #10b981;">{config.nodeEnv}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #d1d5db;">CMS:</span>
+        <strong style="color: #60a5fa; font-size: 0.7rem;">{config.cmsUrl}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #d1d5db;">API Name:</span>
+        <strong style="color: #fbbf24;">{config.websiteApiName}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #d1d5db;">Articles:</span>
+        <strong style="color: #f87171;">{articles.length}</strong>
+      </div>
+
+      {websiteData && (
+        <>
+          <hr style="border: none; border-top: 1px solid #374151; margin: 0.5rem 0;" />
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #d1d5db;">Site Name:</span>
+            <strong style="color: #a78bfa; font-size: 0.7rem;">{websiteData.name}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #d1d5db;">Base URL:</span>
+            <strong style="color: #34d399; font-size: 0.65rem;">{websiteData.baseUrl}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #d1d5db;">Locale:</span>
+            <strong style="color: #fbbf24;">{websiteData.defaultLocale}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #d1d5db;">Locales:</span>
+            <strong style="color: #f87171; font-size: 0.7rem;">{websiteData.locales.join(', ')}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #d1d5db;">Brand:</span>
+            <strong style="color: {websiteData.brandColor}; font-size: 0.7rem;">{websiteData.brandColor}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #d1d5db;">Updated:</span>
+            <strong style="color: #9ca3af; font-size: 0.65rem;">{new Date(websiteData.updatedAt).toLocaleDateString()}</strong>
+          </div>
+        </>
+      )}
+
+      {/* Additional Info */}
+      {Object.keys(additionalInfo).length > 0 && (
+        <>
+          <hr style="border: none; border-top: 1px solid #374151; margin: 0.5rem 0;" />
+          {Object.entries(additionalInfo).map(([key, value]) => (
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #d1d5db;">{key}:</span>
+              <strong style="color: #a78bfa; font-size: 0.7rem;">{String(value)}</strong>
+            </div>
+          ))}
+        </>
+      )}
+
+      <hr style="border: none; border-top: 1px solid #374151; margin: 0.5rem 0;" />
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: #d1d5db;">Build:</span>
+        <strong style="color: #9ca3af; font-size: 0.65rem;">{new Date().toLocaleTimeString()}</strong>
+      </div>
+    </div>
+
+    {/* HTTP Requests Tab Content */}
+    <div id="debug-content-requests" style="padding: 1rem; display: none; font-size: 0.75rem; max-height: 400px; overflow-y: auto;">
+      {httpRequests.length > 0 ? (
+        <div style="display: grid; gap: 0.75rem;">
+          {httpRequests.map((req) => (
+            <div style="border: 1px solid #374151; border-radius: 4px; padding: 0.75rem; background: #111827;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style={`color: ${req.status >= 200 && req.status < 300 ? '#10b981' : req.status >= 400 ? '#f87171' : '#fbbf24'}; font-weight: bold;`}>
+                  {req.method} {req.status}
+                </span>
+                <span style="color: #9ca3af; font-size: 0.65rem;">
+                  {req.duration}ms
+                </span>
+              </div>
+              <div style="color: #60a5fa; font-size: 0.65rem; margin-bottom: 0.25rem; word-break: break-all;">
+                {req.url}
+              </div>
+              <div style="color: #9ca3af; font-size: 0.6rem;">
+                {req.timestamp.toLocaleTimeString()}
+              </div>
+              {req.error && (
+                <div style="color: #f87171; font-size: 0.65rem; margin-top: 0.25rem;">
+                  ❌ {req.error}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style="color: #9ca3af; text-align: center; padding: 2rem;">
+          No HTTP requests recorded
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+
+{/* Debug Toggle Button */}
+<button id="debug-toggle" onclick="toggleDebugPanel(true)"
+        style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: none; background: #374151; border: 1px solid #4b5563; color: white; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); font-size: 1.2rem;">
+  🔧
+</button>
+
+<script>
+  window.toggleDebugPanel = function(show) {
+    const panel = document.getElementById('debug-panel');
+    const toggle = document.getElementById('debug-toggle');
+
+    if (show) {
+      if (panel) panel.style.display = 'block';
+      if (toggle) toggle.style.display = 'none';
+    } else {
+      if (panel) panel.style.display = 'none';
+      if (toggle) toggle.style.display = 'block';
+    }
+  }
+
+  window.switchDebugTab = function(tab) {
+    // Hide all tab contents
+    const infoContent = document.getElementById('debug-content-info');
+    const requestsContent = document.getElementById('debug-content-requests');
+
+    // Reset all tab buttons
+    const infoTab = document.getElementById('tab-info');
+    const requestsTab = document.getElementById('tab-requests');
+
+    if (infoContent) infoContent.style.display = 'none';
+    if (requestsContent) requestsContent.style.display = 'none';
+
+    if (infoTab) {
+      infoTab.style.background = '#1f2937';
+      infoTab.style.color = '#9ca3af';
+    }
+    if (requestsTab) {
+      requestsTab.style.background = '#1f2937';
+      requestsTab.style.color = '#9ca3af';
+    }
+
+    // Show selected tab
+    if (tab === 'info') {
+      if (infoContent) infoContent.style.display = 'grid';
+      if (infoTab) {
+        infoTab.style.background = '#374151';
+        infoTab.style.color = 'white';
+      }
+    } else if (tab === 'requests') {
+      if (requestsContent) requestsContent.style.display = 'block';
+      if (requestsTab) {
+        requestsTab.style.background = '#374151';
+        requestsTab.style.color = 'white';
+      }
+    }
+  }
+</script>
