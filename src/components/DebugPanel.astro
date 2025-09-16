@@ -78,7 +78,7 @@ const httpRequests = getHttpRequests();
           </div>
           <div style="display: flex; justify-content: space-between;">
             <span style="color: #d1d5db;">Brand:</span>
-            <strong style="color: {websiteData.brandColor}; font-size: 0.7rem;">{websiteData.brandColor}</strong>
+            <strong style={`color: ${websiteData.brandColor}; font-size: 0.7rem;`}>{websiteData.brandColor}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
             <span style="color: #d1d5db;">Updated:</span>
@@ -92,7 +92,7 @@ const httpRequests = getHttpRequests();
         <>
           <hr style="border: none; border-top: 1px solid #374151; margin: 0.5rem 0;" />
           {Object.entries(additionalInfo).map(([key, value]) => (
-            <div style="display: flex; justify-content: space-between;">
+            <div key={key} style="display: flex; justify-content: space-between;">
               <span style="color: #d1d5db;">{key}:</span>
               <strong style="color: #a78bfa; font-size: 0.7rem;">{String(value)}</strong>
             </div>
@@ -111,8 +111,8 @@ const httpRequests = getHttpRequests();
     <div id="debug-content-requests" style="padding: 1rem; display: none; font-size: 0.75rem; max-height: 400px; overflow-y: auto;">
       {httpRequests.length > 0 ? (
         <div style="display: grid; gap: 0.75rem;">
-          {httpRequests.map((req) => (
-            <div style="border: 1px solid #374151; border-radius: 4px; padding: 0.75rem; background: #111827;">
+          {httpRequests.map((req, index) => (
+            <div key={index} style="border: 1px solid #374151; border-radius: 4px; padding: 0.75rem; background: #111827;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <span style={`color: ${req.status >= 200 && req.status < 300 ? '#10b981' : req.status >= 400 ? '#f87171' : '#fbbf24'}; font-weight: bold;`}>
                   {req.method} {req.status}
@@ -142,63 +142,63 @@ const httpRequests = getHttpRequests();
       )}
     </div>
   </div>
-</div>
 
-{/* Debug Toggle Button */}
-<button id="debug-toggle" onclick="toggleDebugPanel(true)"
-        style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: none; background: #374151; border: 1px solid #4b5563; color: white; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); font-size: 1.2rem;">
-  🔧
-</button>
+  {/* Debug Toggle Button */}
+  <button id="debug-toggle" onclick="toggleDebugPanel(true)"
+          style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: none; background: #374151; border: 1px solid #4b5563; color: white; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); font-size: 1.2rem;">
+    🔧
+  </button>
 
-<script>
-  window.toggleDebugPanel = function(show) {
-    const panel = document.getElementById('debug-panel');
-    const toggle = document.getElementById('debug-toggle');
+  <script>
+    window.toggleDebugPanel = function(show) {
+      const panel = document.getElementById('debug-panel');
+      const toggle = document.getElementById('debug-toggle');
 
-    if (show) {
-      if (panel) panel.style.display = 'block';
-      if (toggle) toggle.style.display = 'none';
-    } else {
-      if (panel) panel.style.display = 'none';
-      if (toggle) toggle.style.display = 'block';
-    }
-  }
-
-  window.switchDebugTab = function(tab) {
-    // Hide all tab contents
-    const infoContent = document.getElementById('debug-content-info');
-    const requestsContent = document.getElementById('debug-content-requests');
-
-    // Reset all tab buttons
-    const infoTab = document.getElementById('tab-info');
-    const requestsTab = document.getElementById('tab-requests');
-
-    if (infoContent) infoContent.style.display = 'none';
-    if (requestsContent) requestsContent.style.display = 'none';
-
-    if (infoTab) {
-      infoTab.style.background = '#1f2937';
-      infoTab.style.color = '#9ca3af';
-    }
-    if (requestsTab) {
-      requestsTab.style.background = '#1f2937';
-      requestsTab.style.color = '#9ca3af';
+      if (show) {
+        if (panel) panel.style.display = 'block';
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (panel) panel.style.display = 'none';
+        if (toggle) toggle.style.display = 'block';
+      }
     }
 
-    // Show selected tab
-    if (tab === 'info') {
-      if (infoContent) infoContent.style.display = 'grid';
+    window.switchDebugTab = function(tab) {
+      // Hide all tab contents
+      const infoContent = document.getElementById('debug-content-info');
+      const requestsContent = document.getElementById('debug-content-requests');
+
+      // Reset all tab buttons
+      const infoTab = document.getElementById('tab-info');
+      const requestsTab = document.getElementById('tab-requests');
+
+      if (infoContent) infoContent.style.display = 'none';
+      if (requestsContent) requestsContent.style.display = 'none';
+
       if (infoTab) {
-        infoTab.style.background = '#374151';
-        infoTab.style.color = 'white';
+        infoTab.style.background = '#1f2937';
+        infoTab.style.color = '#9ca3af';
       }
-    } else if (tab === 'requests') {
-      if (requestsContent) requestsContent.style.display = 'block';
       if (requestsTab) {
-        requestsTab.style.background = '#374151';
-        requestsTab.style.color = 'white';
+        requestsTab.style.background = '#1f2937';
+        requestsTab.style.color = '#9ca3af';
+      }
+
+      // Show selected tab
+      if (tab === 'info') {
+        if (infoContent) infoContent.style.display = 'grid';
+        if (infoTab) {
+          infoTab.style.background = '#374151';
+          infoTab.style.color = 'white';
+        }
+      } else if (tab === 'requests') {
+        if (requestsContent) requestsContent.style.display = 'block';
+        if (requestsTab) {
+          requestsTab.style.background = '#374151';
+          requestsTab.style.color = 'white';
+        }
       }
     }
-  }
-</script>
+  </script>
+</div>
 )}

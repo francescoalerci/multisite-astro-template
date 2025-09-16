@@ -1,10 +1,11 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import DebugPanel from '../components/DebugPanel.astro';
-import { getWebsiteData, getArticles } from '../services/cms';
+import { getWebsiteData, getArticles, getCategories } from '../services/cms';
 
 const websiteData = await getWebsiteData();
 const articles = await getArticles();
+const categories = await getCategories();
 ---
 
 <Layout title="Home">
@@ -19,6 +20,19 @@ const articles = await getArticles();
 			<div style={`background-color: ${websiteData.brandColor}; color: white; padding: 1rem; border-radius: 4px; margin: 1rem 0;`}>
 				<strong>Brand Color: {websiteData.brandColor}</strong>
 			</div>
+
+			<h2>Categories</h2>
+			{categories.length > 0 ? (
+				<div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 2rem 0;">
+					{categories.map((category) => (
+						<div style={`display: inline-block; background-color: ${websiteData.brandColor}; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; text-decoration: none;`}>
+							{category.name}
+						</div>
+					))}
+				</div>
+			) : (
+				<p style="color: #6b7280; font-style: italic;">No categories found for this website.</p>
+			)}
 
 			<h2>Latest Articles</h2>
 			{articles.length > 0 ? (
@@ -54,5 +68,5 @@ const articles = await getArticles();
 		</>
 	)}
 
-	<DebugPanel websiteData={websiteData} articles={articles} />
+	<DebugPanel websiteData={websiteData} articles={articles} additionalInfo={{ "Categories": categories.length, "Category Names": categories.map(c => c.name).join(", ") }} />
 </Layout>

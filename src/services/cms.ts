@@ -94,6 +94,18 @@ interface Article {
   [key: string]: any;
 }
 
+interface Category {
+  id: number;
+  documentId: string;
+  name: string;
+  slug: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  [key: string]: any;
+}
+
 interface CMSResponse<T> {
   data: T;
   meta: {
@@ -138,6 +150,24 @@ export async function getArticles(): Promise<Article[]> {
     return result.data;
   } catch (error) {
     console.error('Error fetching articles:', error);
+    return [];
+  }
+}
+
+export async function getCategories(): Promise<Category[]> {
+  try {
+    const url = `${config.cmsUrl}/api/categories?filters[website][apiName][$eq]=${config.websiteApiName}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100`;
+
+    const result: CMSResponse<Category[]> = await trackHttpRequest(url, {
+      headers: {
+        'Authorization': `Bearer ${config.cmsApiToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return result.data;
+  } catch (error) {
+    console.error('Error fetching categories:', error);
     return [];
   }
 }
