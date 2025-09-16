@@ -1,8 +1,28 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { getWebsiteData } from '../services/cms';
+
+const websiteData = await getWebsiteData();
 ---
 
 <Layout title="Home">
-	<h1>Welcome to Astro</h1>
-	<p>This is a basic Astro site.</p>
+	{websiteData ? (
+		<>
+			<h1>Welcome to {websiteData.name}</h1>
+			<p>Site: <strong>{websiteData.apiName}</strong></p>
+			<p>Default Locale: <strong>{websiteData.defaultLocale}</strong></p>
+			<p>Available Locales: <strong>{websiteData.locales.join(', ')}</strong></p>
+			<p>Base URL: <strong>{websiteData.baseUrl}</strong></p>
+			<div style={`background-color: ${websiteData.brandColor}; color: white; padding: 1rem; border-radius: 4px; margin: 1rem 0;`}>
+				<strong>Brand Color: {websiteData.brandColor}</strong>
+			</div>
+		</>
+	) : (
+		<>
+			<h1>Welcome to Astro</h1>
+			<p style="color: #d97706; background: #fef3c7; padding: 1rem; border-radius: 4px;">
+				Unable to load website data from CMS. Please check your environment variables.
+			</p>
+		</>
+	)}
 </Layout>
