@@ -30,11 +30,20 @@ const articles = await getArticles(lang);
 const categories = await getCategories(lang);
 ---
 
-<Layout title="Home">
+<Layout title="Home" websiteData={websiteData}>
 	{websiteData ? (
 		<>
 			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-				<h1>Welcome to {websiteData.name}</h1>
+				<div style="display: flex; align-items: center; gap: 1rem;">
+					{websiteData.logo && (
+						<img
+							src={websiteData.logo.url.startsWith('http') ? websiteData.logo.url : `https://cms.falerci.com${websiteData.logo.url}`}
+							alt={websiteData.logo.alternativeText || 'Website Logo'}
+							style="height: 60px; width: auto;"
+						/>
+					)}
+					<h1>Welcome to {websiteData.name}</h1>
+				</div>
 				<LanguageSelector
 					availableLocales={websiteData.locales}
 					currentLang={lang}
@@ -97,5 +106,5 @@ const categories = await getCategories(lang);
 		</>
 	)}
 
-	<DebugPanel websiteData={websiteData} articles={articles} additionalInfo={{ "Current Language": lang, "Categories": categories.length, "Category Names": categories.map(c => c.name).join(", ") }} />
+	<DebugPanel websiteData={websiteData} articles={articles} additionalInfo={{ "Current Language": lang, "Categories": categories.length, "Category Names": categories.map(c => c.name).join(", "), "Logo": websiteData?.logo ? "Available" : "Not set", "Favicon": websiteData?.favicon ? "Available" : "Not set" }} />
 </Layout>

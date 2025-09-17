@@ -1,10 +1,19 @@
 ---
 interface Props {
   title?: string;
+  websiteData?: {
+    name?: string;
+    favicon?: {
+      url: string;
+      alternativeText: string;
+    };
+  };
 }
 
-const { title } = Astro.props;
-const pageTitle = title ? `${title} | Astro Site` : 'Astro Site';
+const { title, websiteData } = Astro.props;
+const siteName = websiteData?.name || 'Astro Site';
+const pageTitle = title ? `${title} | ${siteName}` : siteName;
+const faviconUrl = websiteData?.favicon?.url ? (websiteData.favicon.url.startsWith('http') ? websiteData.favicon.url : `https://cms.falerci.com${websiteData.favicon.url}`) : '/favicon.svg';
 ---
 
 <!doctype html>
@@ -13,7 +22,7 @@ const pageTitle = title ? `${title} | Astro Site` : 'Astro Site';
     <meta charset="UTF-8" />
     <meta name="description" content="Astro description" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href={faviconUrl} />
     <meta name="generator" content={Astro.generator} />
     <title>{pageTitle}</title>
     <style>

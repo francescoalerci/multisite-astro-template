@@ -76,6 +76,14 @@ interface Website {
   locales: string[];
   defaultLocale: string;
   brandColor: string;
+  logo?: {
+    url: string;
+    alternativeText: string;
+  };
+  favicon?: {
+    url: string;
+    alternativeText: string;
+  };
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
@@ -120,7 +128,7 @@ interface CMSResponse<T> {
 
 export async function getWebsiteData(): Promise<Website | null> {
   try {
-    const url = `${config.cmsUrl}/api/websites?filters[apiName][$eq]=${config.websiteApiName}`;
+    const url = `${config.cmsUrl}/api/websites?filters[apiName][$eq]=${config.websiteApiName}&populate=*`;
 
     const result: CMSResponse<Website[]> = await trackHttpRequest(url, {
       headers: {
