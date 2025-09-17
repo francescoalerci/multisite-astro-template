@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import DebugPanel from '../../components/DebugPanel.astro';
 import LanguageSelector from '../../components/LanguageSelector.astro';
-import { getWebsiteData, getArticles, getCategories } from '../../services/cms';
+import { getWebsiteData, getArticles, getTags } from '../../services/cms';
 import { isValidLanguage, getDefaultLanguage } from '../../utils/language';
 
 export async function getStaticPaths() {
@@ -27,10 +27,19 @@ if (!websiteData || !lang || !isValidLanguage(lang, websiteData.locales)) {
 }
 
 const articles = await getArticles(lang);
-const categories = await getCategories(lang);
+const tags = await getTags(lang);
+
+// Extract brand colors for easier use
+const brandColors = websiteData?.brandColors?.[0] || {
+	primary: '#6b7280',
+	secondary: '#f3f4f6',
+	background: '#ffffff',
+	text: '#111827'
+};
 ---
 
 <Layout title="Home" websiteData={websiteData}>
+	<div style={`background-color: ${brandColors.background}; color: ${brandColors.text}; min-height: 100vh; padding: 2rem;`}>
 	{websiteData ? (
 		<>
 			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
@@ -55,56 +64,74 @@ const categories = await getCategories(lang);
 			<p>Default Locale: <strong>{websiteData.defaultLocale}</strong></p>
 			<p>Available Locales: <strong>{websiteData.locales.join(', ')}</strong></p>
 			<p>Base URL: <strong>{websiteData.baseUrl}</strong></p>
-			<div style={`background-color: ${websiteData.brandColor}; color: white; padding: 1rem; border-radius: 4px; margin: 1rem 0;`}>
-				<strong>Brand Color: {websiteData.brandColor}</strong>
-			</div>
+			{websiteData.brandColors && websiteData.brandColors.length > 0 && (
+				<div style={`background: linear-gradient(135deg, ${brandColors.primary}, ${brandColors.secondary}); color: white; padding: 1.5rem; border-radius: 8px; margin: 1rem 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);`}>
+					<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; font-size: 0.875rem;">
+						<div><strong>Primary:</strong> {brandColors.primary}</div>
+						<div><strong>Secondary:</strong> {brandColors.secondary}</div>
+						<div><strong>Background:</strong> {brandColors.background}</div>
+						<div><strong>Text:</strong> {brandColors.text}</div>
+					</div>
+				</div>
+			)}
 
-			<h2>Categories</h2>
-			{categories.length > 0 ? (
+			<h2 style={`color: ${brandColors.primary}; border-bottom: 2px solid ${brandColors.secondary}; padding-bottom: 0.5rem; margin-bottom: 1.5rem;`}>Tags</h2>
+			{tags.length > 0 ? (
 				<div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 2rem 0;">
-					{categories.map((category) => (
-						<div style={`display: inline-block; background-color: ${websiteData.brandColor}; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; text-decoration: none;`}>
-							{category.name}
+					{tags.map((tag, index) => (
+						<div style={`display: inline-block; background: ${index % 2 === 0 ? brandColors.primary : brandColors.secondary}; color: ${index % 2 === 0 ? 'white' : brandColors.text}; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; text-decoration: none; border: 1px solid ${brandColors.primary}; transition: all 0.3s ease;`}>
+							{tag.name}
 						</div>
 					))}
 				</div>
 			) : (
-				<p style="color: #6b7280; font-style: italic;">No categories found for this website.</p>
+				<p style={`color: ${brandColors.text}; opacity: 0.6; font-style: italic;`}>No tags found for this website.</p>
 			)}
 
-			<h2>Latest Articles</h2>
+			<h2 style={`color: ${brandColors.primary}; border-bottom: 2px solid ${brandColors.secondary}; padding-bottom: 0.5rem; margin-bottom: 1.5rem;`}>Latest Articles</h2>
 			{articles.length > 0 ? (
 				<div style="display: grid; gap: 1.5rem; margin: 2rem 0;">
 					{articles.map((article) => (
-						<article style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; background: #f9fafb;">
-							<h3 style="margin: 0 0 0.5rem; color: #111827;">
-								<a href={`/articles/${article.slug}`} style={`color: ${websiteData.brandColor}; text-decoration: none;`}>
+						<article style={`border: 2px solid ${brandColors.secondary}; border-radius: 12px; padding: 1.5rem; background: ${brandColors.background}; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); transition: all 0.3s ease; hover:shadow-lg;`}>
+							{article.coverImage && (
+								<img
+									src={article.coverImage.url.startsWith('http') ? article.coverImage.url : `https://cms.falerci.com${article.coverImage.url}`}
+									alt={article.coverImage.alternativeText || article.title}
+									style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 1rem;"
+								/>
+							)}
+							<h3 style={`margin: 0 0 0.5rem; color: ${brandColors.text};`}>
+								<a href={`/articles/${article.slug}`} style={`color: ${brandColors.primary}; text-decoration: none; font-weight: 600; hover:text-decoration: underline;`}>
 									{article.title}
 								</a>
 							</h3>
-							{article.excerpt && (
-								<p style="color: #6b7280; margin: 0.5rem 0 1rem; line-height: 1.5;">
-									{article.excerpt}
+							{article.summary && (
+								<p style={`color: ${brandColors.text}; opacity: 0.8; margin: 0.5rem 0 1rem; line-height: 1.5;`}>
+									{article.summary}
 								</p>
 							)}
-							<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; color: #9ca3af;">
+							<div style={`display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; color: ${brandColors.text}; opacity: 0.6; border-top: 1px solid ${brandColors.secondary}; padding-top: 1rem; margin-top: 1rem;`}>
 								<span>Updated: {new Date(article.updatedAt).toLocaleDateString()}</span>
+								{article.readingTime && (
+									<span style={`background: ${brandColors.secondary}; color: ${brandColors.primary}; padding: 0.25rem 0.5rem; border-radius: 12px; font-weight: 500;`}>{article.readingTime} min read</span>
+								)}
 							</div>
 						</article>
 					))}
 				</div>
 			) : (
-				<p style="color: #6b7280; font-style: italic;">No articles found for this website.</p>
+				<p style={`color: ${brandColors.text}; opacity: 0.6; font-style: italic;`}>No articles found for this website.</p>
 			)}
 		</>
 	) : (
 		<>
-			<h1>Welcome to Astro</h1>
-			<p style="color: #d97706; background: #fef3c7; padding: 1rem; border-radius: 4px;">
+			<h1 style={`color: ${brandColors.text};`}>Welcome to Astro</h1>
+			<p style={`color: #d97706; background: ${brandColors.secondary}; padding: 1rem; border-radius: 8px; border-left: 4px solid ${brandColors.primary};`}>
 				Unable to load website data from CMS. Please check your environment variables.
 			</p>
 		</>
 	)}
 
-	<DebugPanel websiteData={websiteData} articles={articles} additionalInfo={{ "Current Language": lang, "Categories": categories.length, "Category Names": categories.map(c => c.name).join(", "), "Logo": websiteData?.logo ? "Available" : "Not set", "Favicon": websiteData?.favicon ? "Available" : "Not set" }} />
+	<DebugPanel websiteData={websiteData} articles={articles} additionalInfo={{ "Current Language": lang, "Tags": tags.length, "Tag Names": tags.map(t => t.name).join(", "), "Logo": websiteData?.logo ? "Available" : "Not set", "Favicon": websiteData?.favicon ? "Available" : "Not set", "Brand Colors": websiteData?.brandColors?.length || 0 }} />
+	</div>
 </Layout>

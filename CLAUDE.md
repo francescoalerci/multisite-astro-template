@@ -45,8 +45,10 @@ Create `.env` from `.env.example`.
 - `NODE_ENV`: Set to `development` to enable debug panel and HTTP tracking
 
 **Currently Used API Endpoints:**
-1. **Website Data**: `GET /api/websites?filters[apiName][$eq]={WEBSITE_API_NAME}`
-2. **Articles**: `GET /api/articles?filters[website][apiName][$eq]={WEBSITE_API_NAME}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100`
+1. **Website Data**: `GET /api/websites?filters[apiName][$eq]={WEBSITE_API_NAME}&populate=*`
+2. **Articles**: `GET /api/articles?filters[website][apiName][$eq]={WEBSITE_API_NAME}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100&locale={LOCALE}`
+3. **Tags**: `GET /api/tags?filters[website][apiName][$eq]={WEBSITE_API_NAME}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100&locale={LOCALE}`
+4. **Authors**: `GET /api/authors?populate=*&sort=name:asc&pagination[page]=1&pagination[pageSize]=100`
 
 ---
 
@@ -73,18 +75,45 @@ src/
 {
   "data": [{
     "id": 3,
+    "documentId": "xyz123",
     "name": "Portugal Travel Guide",
     "apiName": "portugal",
     "baseUrl": "https://portugal.yourbrand.com",
     "locales": ["en", "pt", "es", "fr", "it"],
     "defaultLocale": "en",
-    "brandColor": "#046A38"
+    "logo": {
+      "url": "/uploads/logo.png",
+      "alternativeText": "Logo"
+    },
+    "favicon": {
+      "url": "/uploads/favicon.ico",
+      "alternativeText": "Favicon"
+    },
+    "globalSEO": {
+      "metaTitle": "Portugal Travel Guide",
+      "metaDescription": "Your ultimate guide to Portugal"
+    },
+    "brandColors": [{
+      "primary": "#046A38",
+      "secondary": "#F4F4F4",
+      "background": "#FFFFFF",
+      "text": "#333333"
+    }]
   }]
 }
 ```
 
 ### Articles Response
-Returns array of articles filtered by website apiName, sorted by updatedAt descending.
+Returns array of localized articles filtered by website apiName, sorted by updatedAt descending.
+- Articles now have `summary` instead of `excerpt`
+- Articles now have `body` instead of `content`
+- Articles include `coverImage`, `readingTime`, `seo`, and relationships to `tags` and `author`
+
+### Tags Response
+Returns array of tags filtered by website apiName (replaces categories).
+
+### Authors Response
+Returns array of all authors with bio, avatar, and social links.
 
 ---
 

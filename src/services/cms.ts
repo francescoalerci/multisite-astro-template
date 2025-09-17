@@ -67,6 +67,18 @@ async function trackHttpRequest<T>(url: string, requestInit: RequestInit): Promi
   }
 }
 
+interface ColorPalette {
+  primary: string;
+  secondary: string;
+  background: string;
+  text?: string;
+}
+
+interface SEOMeta {
+  metaTitle?: string;
+  metaDescription?: string;
+}
+
 interface Website {
   id: number;
   documentId: string;
@@ -75,7 +87,6 @@ interface Website {
   baseUrl: string;
   locales: string[];
   defaultLocale: string;
-  brandColor: string;
   logo?: {
     url: string;
     alternativeText: string;
@@ -84,6 +95,8 @@ interface Website {
     url: string;
     alternativeText: string;
   };
+  globalSEO?: SEOMeta;
+  brandColors?: ColorPalette[];
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
@@ -94,20 +107,47 @@ interface Article {
   documentId: string;
   title: string;
   slug: string;
-  excerpt: string;
-  content: string;
+  summary: string;
+  body: string;
+  coverImage?: {
+    url: string;
+    alternativeText: string;
+  };
+  readingTime?: number;
+  seo?: SEOMeta;
+  website?: Website;
+  tags?: Tag[];
+  author?: Author;
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
   [key: string]: any;
 }
 
-interface Category {
+interface Tag {
   id: number;
   documentId: string;
   name: string;
   slug: string;
-  description?: string;
+  website?: Website;
+  articles?: Article[];
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  [key: string]: any;
+}
+
+interface Author {
+  id: number;
+  documentId: string;
+  name: string;
+  slug: string;
+  bio?: string;
+  avatar?: {
+    url: string;
+    alternativeText: string;
+  };
+  links?: any[];
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
@@ -167,16 +207,16 @@ export async function getArticles(locale?: string): Promise<Article[]> {
   }
 }
 
-export async function getCategories(locale?: string): Promise<Category[]> {
+export async function getTags(locale?: string): Promise<Tag[]> {
   try {
-    let url = `${config.cmsUrl}/api/categories?filters[website][apiName][$eq]=${config.websiteApiName}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100`;
+    let url = `${config.cmsUrl}/api/tags?filters[website][apiName][$eq]=${config.websiteApiName}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100`;
 
     // Add locale parameter if provided
     if (locale) {
       url += `&locale=${locale}`;
     }
 
-    const result: CMSResponse<Category[]> = await trackHttpRequest(url, {
+    const result: CMSResponse<Tag[]> = await trackHttpRequest(url, {
       headers: {
         'Authorization': `Bearer ${config.cmsApiToken}`,
         'Content-Type': 'application/json',
@@ -185,7 +225,25 @@ export async function getCategories(locale?: string): Promise<Category[]> {
 
     return result.data;
   } catch (error) {
-    console.error('Error fetching categories:', error);
+    console.error('Error fetching tags:', error);
+    return [];
+  }
+}
+
+export async function getAuthors(): Promise<Author[]> {
+  try {
+    const url = `${config.cmsUrl}/api/authors?populate=*&sort=name:asc&pagination[page]=1&pagination[pageSize]=100`;
+
+    const result: CMSResponse<Author[]> = await trackHttpRequest(url, {
+      headers: {
+        'Authorization': `Bearer ${config.cmsApiToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return result.data;
+  } catch (error) {
+    console.error('Error fetching authors:', error);
     return [];
   }
 }
