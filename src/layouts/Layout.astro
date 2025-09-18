@@ -1,8 +1,23 @@
 ---
+import { config } from '../config';
+
 interface Props {
   title?: string;
   websiteData?: {
     name?: string;
+    baseUrl?: string;
+    locales?: string[];
+    defaultLocale?: string;
+    logo?: {
+      url: string;
+      alternativeText?: string;
+    };
+    brandColors?: Array<{
+      primary?: string;
+      secondary?: string;
+      background?: string;
+      text?: string;
+    }>;
     favicon?: {
       url: string;
       alternativeText: string;
@@ -13,7 +28,56 @@ interface Props {
 const { title, websiteData } = Astro.props;
 const siteName = websiteData?.name || 'Astro Site';
 const pageTitle = title ? `${title} | ${siteName}` : siteName;
-const faviconUrl = websiteData?.favicon?.url ? (websiteData.favicon.url.startsWith('http') ? websiteData.favicon.url : `https://cms.falerci.com${websiteData.favicon.url}`) : '/favicon.svg';
+
+function resolveAssetUrl(path?: string | null) {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  if (!config.cmsUrl) {
+    console.warn('Missing CMS_URL env. Returning relative asset path for logo/favicon.');
+    return path;
+  }
+  const normalizedBase = config.cmsUrl.replace(/\/$/, '');
+  return `${normalizedBase}${path}`;
+}
+
+const faviconUrl = resolveAssetUrl(websiteData?.favicon?.url) || '/favicon.svg';
+const currentYear = new Date().getFullYear();
+
+function createVarStyle(map: Record<string, string | undefined>, context: string): string {
+  const segments: string[] = [];
+  const missing: string[] = [];
+
+  for (const [key, value] of Object.entries(map)) {
+    if (!value) {
+      missing.push(key);
+      continue;
+    }
+    segments.push(`--${key}: ${value};`);
+  }
+
+  if (missing.length > 0) {
+    console.warn(`Missing brand color values for ${missing.join(', ')} in ${context}. Update the CMS brandColors configuration to keep the layout in sync.`);
+  }
+
+  return segments.join(' ');
+}
+
+const brandPalette = websiteData?.brandColors?.[0];
+
+if (!brandPalette) {
+  console.warn('No brandColors found in CMS response. Footer and layout styling will fall back to browser defaults until values are provided.');
+}
+
+const brandStyles = createVarStyle(
+  {
+    'brand-primary': brandPalette?.primary,
+    'brand-secondary': brandPalette?.secondary,
+    'brand-background': brandPalette?.background,
+    'brand-text': brandPalette?.text,
+  },
+  'brandColors[0]'
+);
+const logoUrl = resolveAssetUrl(websiteData?.logo?.url);
 ---
 
 <!doctype html>
@@ -26,22 +90,90 @@ const faviconUrl = websiteData?.favicon?.url ? (websiteData.favicon.url.startsWi
     <meta name="generator" content={Astro.generator} />
     <title>{pageTitle}</title>
     <style>
-      body {
-        font-family: system-ui, sans-serif;
-        margin: 0;
-        padding: 0;
-        color: #333;
+      :root {
+        color-scheme: light;
       }
-      .container {
-        width: 100%;
+      body {
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
         margin: 0;
-        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--brand-background);
+        color: var(--brand-text);
+      }
+      .page-main {
+        flex: 1 0 auto;
+      }
+      .site-footer {
+        background: var(--brand-primary);
+        color: var(--brand-text);
+        padding: 3rem 1.5rem;
+      }
+      .footer-inner {
+        max-width: 960px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+      .footer-brand {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      .footer-logo {
+        height: 36px;
+        width: auto;
+        flex-shrink: 0;
+      }
+      .footer-brand-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .footer-brand-copy strong {
+        font-size: 1.15rem;
+        line-height: 1.1;
+      }
+      .footer-brand-copy p {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--brand-text);
+        opacity: 0.8;
+        max-width: 540px;
+      }
+      .footer-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        font-size: 0.85rem;
+        color: var(--brand-text);
+        opacity: 0.75;
+        border-top: 1px solid currentColor;
+        padding-top: 1.5rem;
       }
     </style>
   </head>
-  <body>
-    <main class="container">
+  <body style={brandStyles || undefined}>
+    <main class="page-main">
       <slot />
     </main>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          {logoUrl && (
+            <img src={logoUrl} alt={websiteData?.logo?.alternativeText || `${siteName} logo`} class="footer-logo" loading="lazy" />
+          )}
+          <div class="footer-brand-copy">
+            <strong>{siteName}</strong>
+            <p>Travel stories and landing pages powered by Strapi. Use the CMS to tweak branding, copy, and asset delivery per market.</p>
+          </div>
+        </div>
+        <div class="footer-meta">
+          <span>© {currentYear} {siteName}. All rights reserved.</span>
+        </div>
+      </div>
+    </footer>
   </body>
 </html>
