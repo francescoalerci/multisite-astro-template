@@ -1,33 +1,17 @@
 ---
 import { config } from '../config';
+import type { Website, MediaAsset, NavMenuItem, NavLinkGroup } from '../services/cms';
 
 interface Props {
   title?: string;
-  websiteData?: {
-    name?: string;
-    baseUrl?: string;
-    locales?: string[];
-    defaultLocale?: string;
-    logo?: {
-      url: string;
-      alternativeText?: string;
-    };
-    brandColors?: Array<{
-      primary?: string;
-      secondary?: string;
-      background?: string;
-      text?: string;
-    }>;
-    favicon?: {
-      url: string;
-      alternativeText: string;
-    };
-  };
+  websiteData?: Website | null;
+  currentLocale?: string;
 }
 
-const { title, websiteData } = Astro.props;
-const siteName = websiteData?.name || 'Astro Site';
+const { title, websiteData, currentLocale } = Astro.props as Props;
+const siteName = websiteData?.header?.brandDisplayName || websiteData?.name || 'Astro Site';
 const pageTitle = title ? `${title} | ${siteName}` : siteName;
+const activeLocale = currentLocale || websiteData?.locale || websiteData?.defaultLocale || 'en';
 
 function resolveAssetUrl(path?: string | null) {
   if (!path) return null;
@@ -40,7 +24,10 @@ function resolveAssetUrl(path?: string | null) {
   return `${normalizedBase}${path}`;
 }
 
-const faviconUrl = resolveAssetUrl(websiteData?.favicon?.url) || '/favicon.svg';
+function getAssetUrl(media?: MediaAsset | null) {
+  if (!media) return null;
+  return media.fullUrl || resolveAssetUrl(media.url);
+}
 const currentYear = new Date().getFullYear();
 
 function createVarStyle(map: Record<string, string | undefined>, context: string): string {
@@ -56,35 +43,51 @@ function createVarStyle(map: Record<string, string | undefined>, context: string
   }
 
   if (missing.length > 0) {
-    console.warn(`Missing brand color values for ${missing.join(', ')} in ${context}. Update the CMS brandColors configuration to keep the layout in sync.`);
+    console.warn(`Missing brand color values for ${missing.join(', ')} in ${context}. Update the CMS ${context} configuration to keep the layout in sync.`);
   }
 
   return segments.join(' ');
 }
 
-const brandPalette = websiteData?.brandColors?.[0];
-
-if (!brandPalette) {
-  console.warn('No brandColors found in CMS response. Footer and layout styling will fall back to browser defaults until values are provided.');
+if (!websiteData?.theme) {
+  console.warn('No theme palette found in CMS response. Layout styling will fall back to browser defaults until values are provided.');
 }
 
+const themePalette = websiteData?.theme?.palette;
 const brandStyles = createVarStyle(
   {
-    'brand-primary': brandPalette?.primary,
-    'brand-secondary': brandPalette?.secondary,
-    'brand-background': brandPalette?.background,
-    'brand-text': brandPalette?.text,
+    'brand-primary': websiteData?.theme?.brandColor || themePalette?.primary,
+    'brand-secondary': themePalette?.secondary,
+    'brand-background': themePalette?.background,
+    'brand-text': themePalette?.neutral || themePalette?.muted,
   },
-  'brandColors[0]'
+  'theme.palette'
 );
-const logoUrl = resolveAssetUrl(websiteData?.logo?.url);
+
+const logoAsset = websiteData?.brand?.logo ?? null;
+const faviconAsset = websiteData?.brand?.favicon ?? null;
+const logoUrl = getAssetUrl(logoAsset);
+const faviconUrl = getAssetUrl(faviconAsset) || '/favicon.svg';
+const metaDescription = websiteData?.seoDefaults?.metaDescription || 'Astro description';
+const footerContent = websiteData?.footer;
+const footerLinkGroups: NavLinkGroup[] = footerContent?.linkGroups ?? [];
+
+function resolveFooterHref(item: NavMenuItem, locale: string): string {
+  if (item.linkType === 'external_url') {
+    return item.url || '#';
+  }
+
+  const path = item.path ? (item.path.startsWith('/') ? item.path : `/${item.path}`) : '';
+  const localized = `/${locale}${path}`;
+  return localized.replace(/\/+$/, '') || `/${locale}`;
+}
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={activeLocale}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="description" content="Astro description" />
+    <meta name="description" content={metaDescription} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href={faviconUrl} />
     <meta name="generator" content={Astro.generator} />
@@ -99,8 +102,8 @@ const logoUrl = resolveAssetUrl(websiteData?.logo?.url);
         min-height: 100vh;
         display: flex;
         flex-direction: column;
-        background: var(--brand-background);
-        color: var(--brand-text);
+        background: var(--brand-background, #f8fafc);
+        color: var(--brand-text, #1f2937);
       }
       .page-main {
         flex: 1 0 auto;
@@ -136,12 +139,40 @@ const logoUrl = resolveAssetUrl(websiteData?.logo?.url);
         font-size: 1.15rem;
         line-height: 1.1;
       }
-      .footer-brand-copy p {
+      .footer-about {
         margin: 0;
         font-size: 0.92rem;
         color: var(--brand-text);
         opacity: 0.8;
         max-width: 540px;
+      }
+      .footer-links {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1.5rem;
+      }
+      .footer-link-column strong {
+        display: block;
+        margin-bottom: 0.35rem;
+        font-size: 0.95rem;
+      }
+      .footer-link-column ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .footer-link-column a {
+        color: var(--brand-text);
+        opacity: 0.85;
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: opacity 0.2s ease;
+      }
+      .footer-link-column a:hover {
+        opacity: 1;
       }
       .footer-meta {
         display: flex;
@@ -163,15 +194,46 @@ const logoUrl = resolveAssetUrl(websiteData?.logo?.url);
       <div class="footer-inner">
         <div class="footer-brand">
           {logoUrl && (
-            <img src={logoUrl} alt={websiteData?.logo?.alternativeText || `${siteName} logo`} class="footer-logo" loading="lazy" />
+            <img src={logoUrl} alt={logoAsset?.alternativeText || `${siteName} logo`} class="footer-logo" loading="lazy" />
           )}
           <div class="footer-brand-copy">
             <strong>{siteName}</strong>
-            <p>Travel stories and landing pages powered by Strapi. Use the CMS to tweak branding, copy, and asset delivery per market.</p>
+            {footerContent?.aboutText && (
+              <div class="footer-about" set:html={footerContent.aboutText}></div>
+            )}
           </div>
         </div>
+        {footerLinkGroups.length > 0 && (
+          <div class="footer-links">
+            {footerLinkGroups.map((group) => (
+              <div class="footer-link-column">
+                {group.groupTitle && <strong>{group.groupTitle}</strong>}
+                {group.links.length > 0 && (
+                  <ul>
+                    {group.links.map((link) => {
+                      const href = resolveFooterHref(link, activeLocale);
+                      const isExternal = link.linkType === 'external_url';
+                      const openInNewTab = Boolean(link.openInNewTab || isExternal);
+                      return (
+                        <li>
+                          <a
+                            href={href}
+                            target={openInNewTab ? '_blank' : undefined}
+                            rel={openInNewTab ? 'noopener noreferrer' : undefined}
+                          >
+                            {link.label}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         <div class="footer-meta">
-          <span>© {currentYear} {siteName}. All rights reserved.</span>
+          <span>{footerContent?.copyrightText || `© ${currentYear} ${siteName}. All rights reserved.`}</span>
         </div>
       </div>
     </footer>
