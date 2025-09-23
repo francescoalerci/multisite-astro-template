@@ -100,7 +100,8 @@ const mutedColor = themePalette?.muted ?? '#6b7280';
 
 const brandDisplayName = websiteData?.header?.brandDisplayName ?? websiteData?.name ?? 'Multisite Travel';
 const tagline = websiteData?.header?.tagline ?? websiteData?.seoDefaults?.metaDescription ?? '';
-const heroBackgroundUrl = websiteData?.homepageHero?.image?.fullUrl ?? websiteData?.homepageHero?.image?.url ?? null;
+const heroImageSource = websiteData?.homepageHero?.image ?? null;
+const heroBackgroundUrl = resolveMediaUrl(heroImageSource?.fullUrl ?? heroImageSource?.url) ?? null;
 const heroImageAlt = websiteData?.homepageHero?.alt ?? brandDisplayName;
 const brandLogo = websiteData?.brand?.logo ?? null;
 const brandLogoUrl = brandLogo?.fullUrl ?? brandLogo?.url ?? null;
@@ -145,9 +146,10 @@ function getCoverImageUrl(media?: { url?: string | null } | null): string | null
   }
   return resolveMediaUrl(media.url);
 }
+const heroOverlay = 'linear-gradient(135deg, rgba(17, 24, 39, 0.72), rgba(17, 24, 39, 0.55))';
 const heroGradient = `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`;
 const heroBackgroundStyle = heroBackgroundUrl
-  ? `background-image: ${heroGradient}, url('${heroBackgroundUrl}');`
+  ? `background-image: ${heroOverlay}, url('${heroBackgroundUrl}');`
   : `background-image: ${heroGradient};`;
 ---
 
@@ -167,6 +169,18 @@ const heroBackgroundStyle = heroBackgroundUrl
 			--blue: var(--secondary);
 			--border-radius: 8px;
 			--text-secondary: var(--muted);
+		}
+
+		.sr-only {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
 		}
 
 		body {

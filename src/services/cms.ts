@@ -427,21 +427,15 @@ function buildWebsiteUrl(locale?: string | null): string | null {
     params.set('filters[apiName][$eq]', config.websiteApiName);
   }
 
-  const populateFields = [
-    'brand.logo',
-    'brand.favicon',
-    'theme.palette',
-    'homepageHero.image',
-    'header.primaryNav',
-    'footer.linkGroups.links',
-    'seoDefaults',
-    'systemLabels',
-    'localizations',
-  ];
-
-  for (const field of populateFields) {
-    params.append('populate', field);
-  }
+  params.set('populate[brand][populate]', '*');
+  params.set('populate[theme][populate]', '*');
+  params.set('populate[homepageHero][populate]', '*');
+  params.set('populate[header][populate]', '*');
+  params.set('populate[footer][populate][linkGroups][populate]', 'links');
+  params.set('populate[seoDefaults]', '*');
+  params.set('populate[systemLabels]', '*');
+  params.append('populate[localizations][fields]', 'id');
+  params.append('populate[localizations][fields]', 'locale');
 
   if (locale) {
     params.set('locale', locale);
