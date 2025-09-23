@@ -69,7 +69,7 @@ const logoAsset = websiteData?.brand?.logo ?? null;
 const faviconAsset = websiteData?.brand?.favicon ?? null;
 const logoUrl = getAssetUrl(logoAsset);
 const faviconUrl = getAssetUrl(faviconAsset) || '/favicon.svg';
-const metaDescription = description ?? websiteData?.seoDefaults?.metaDescription || 'Astro description';
+const metaDescription = description ?? (websiteData?.seoDefaults?.metaDescription || 'Astro description');
 const footerContent = websiteData?.footer;
 const footerLinkGroups: NavLinkGroup[] = footerContent?.linkGroups ?? [];
 
