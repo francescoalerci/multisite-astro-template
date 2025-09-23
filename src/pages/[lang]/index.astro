@@ -9,6 +9,7 @@ import { config } from '../../config';
 import { getWebsiteData, getLocalizedWebsiteData, getArticles, getTags } from '../../services/cms';
 import type { NavMenuItem } from '../../services/cms';
 import { isValidLanguage, getDefaultLanguage } from '../../utils/language';
+import { buildLocalizedUrl } from '../../utils/urlSegments';
 
 export async function getStaticPaths() {
   try {
@@ -151,7 +152,7 @@ const navLinks = primaryNav.length > 0
     }))
   : tags.slice(0, 5).map((tag) => ({
       label: tag.name,
-      href: `/${activeLocale}/tag/${tag.slug}`,
+      href: buildLocalizedUrl(activeLocale, ['tag', ':slug'], { slug: tag.slug }),
       openInNewTab: false,
     }));
 

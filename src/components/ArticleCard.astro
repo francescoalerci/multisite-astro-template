@@ -1,5 +1,6 @@
 ---
 import { config } from '../config';
+import { buildLocalizedUrl } from '../utils/urlSegments';
 
 interface ArticleTag {
   name: string;
@@ -52,7 +53,7 @@ function resolveMediaUrl(path?: string | null): string | null {
 
 const coverImageUrl = resolveMediaUrl(article.coverImage?.url) ?? '/images/placeholder.jpg';
 const coverAlt = article.coverImage?.alternativeText || article.title;
-const articleHref = `/${locale}/articles/${article.slug}`.replace(/\/+/, '/');
+const articleHref = buildLocalizedUrl(locale, ['articles', ':slug'], { slug: article.slug });
 const formattedDate = new Date(article.updatedAt).toLocaleDateString(locale || 'en', {
   year: 'numeric',
   month: 'short',

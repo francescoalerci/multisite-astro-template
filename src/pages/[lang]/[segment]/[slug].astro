@@ -16,6 +16,7 @@ import {
   type Article,
 } from '../../../services/cms';
 import { isValidLanguage, getDefaultLanguage } from '../../../utils/language';
+import { getLocalizedSegment, getSegmentKey, buildLocalizedUrl } from '../../../utils/urlSegments';
 
 export async function getStaticPaths() {
   try {
@@ -37,8 +38,14 @@ export async function getStaticPaths() {
 
     const paths = articlesByLocale.flatMap((articles, index) => {
       const locale = locales[index];
+      const localizedArticlesSegment = getLocalizedSegment(locale, 'articles');
+
       return articles.map((article) => ({
-        params: { lang: locale, slug: article.slug },
+        params: {
+          lang: locale,
+          segment: localizedArticlesSegment,
+          slug: article.slug
+        },
       }));
     });
 
@@ -49,8 +56,9 @@ export async function getStaticPaths() {
   }
 }
 
-const { lang, slug } = Astro.params;
+const { lang, segment, slug } = Astro.params;
 const requestedLocale = typeof lang === 'string' ? lang : undefined;
+const requestedSegment = typeof segment === 'string' ? segment : undefined;
 const requestedSlug = typeof slug === 'string' ? slug : undefined;
 
 let websiteData = null;
@@ -60,8 +68,8 @@ let tags = [];
 let supportedLocales: string[] = [];
 
 try {
-  if (!requestedSlug) {
-    throw new Error('Missing article slug parameter');
+  if (!requestedSlug || !requestedSegment) {
+    throw new Error('Missing article slug or segment parameter');
   }
 
   if (requestedLocale) {
@@ -81,11 +89,20 @@ try {
   const fallbackLocale = getDefaultLanguage(supportedLocales, websiteData.defaultLocale);
 
   if (!requestedLocale) {
-    return Astro.redirect(`/${fallbackLocale}/articles/${requestedSlug}`);
+    const localizedSegment = getLocalizedSegment(fallbackLocale, 'articles');
+    return Astro.redirect(`/${fallbackLocale}/${localizedSegment}/${requestedSlug}`);
   }
 
   if (!isValidLanguage(requestedLocale, supportedLocales) || websiteData.locale !== requestedLocale) {
-    return Astro.redirect(`/${fallbackLocale}/articles/${requestedSlug}`);
+    const localizedSegment = getLocalizedSegment(fallbackLocale, 'articles');
+    return Astro.redirect(`/${fallbackLocale}/${localizedSegment}/${requestedSlug}`);
+  }
+
+  // Verify that the segment matches the localized "articles" segment
+  const expectedSegment = getLocalizedSegment(requestedLocale, 'articles');
+  if (requestedSegment !== expectedSegment) {
+    // Redirect to correct localized URL
+    return Astro.redirect(`/${requestedLocale}/${expectedSegment}/${requestedSlug}`);
   }
 
   article = await getArticleBySlug(requestedSlug, requestedLocale);
@@ -93,7 +110,8 @@ try {
   if (!article && requestedLocale !== fallbackLocale) {
     const fallbackArticle = await getArticleBySlug(requestedSlug, fallbackLocale);
     if (fallbackArticle) {
-      return Astro.redirect(`/${fallbackLocale}/articles/${fallbackArticle.slug}`);
+      const fallbackLocalizedSegment = getLocalizedSegment(fallbackLocale, 'articles');
+      return Astro.redirect(`/${fallbackLocale}/${fallbackLocalizedSegment}/${fallbackArticle.slug}`);
     }
   }
 
@@ -167,7 +185,7 @@ const navLinks = primaryNav.length > 0
     }))
   : tags.slice(0, 5).map((tag) => ({
       label: tag.name,
-      href: `/${activeLocale}/tag/${tag.slug}`,
+      href: buildLocalizedUrl(activeLocale, ['tag'], { tag: tag.slug }),
       openInNewTab: false,
     }));
 ---
@@ -284,6 +302,8 @@ const navLinks = primaryNav.length > 0
       'Active Locale': activeLocale,
       'Supported Locales': supportedLocales.join(', '),
       'Article Slug': requestedSlug,
+      'URL Segment': requestedSegment,
+      'Expected Segment': getLocalizedSegment(activeLocale, 'articles'),
       'Article Found': Boolean(article),
       'Related Articles': relatedArticles.length,
       'Tag Count': tags.length,
