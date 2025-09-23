@@ -9,6 +9,14 @@ This repository is a **multisite Astro template** for country/city travel sites.
 
 If you (Claude) generate or modify code, keep it simple, fast, and maintainable.
 
+## Coding Style & Conventions
+- **Formatting**: Default Astro formatter with two-space indentation and trailing commas
+- **Component Naming**: PascalCase for components (`LanguageSelector.astro`)
+- **Utility Naming**: camelCase for utilities (`getDefaultLanguage`)
+- **Component Architecture**: Component-first approach with co-located styles in `.astro` files
+- **Environment Access**: Flow through `src/config.ts` for centralized configuration
+- **Global Styles**: Keep in `public` or shared stylesheets, not component-specific
+
 ---
 
 ## Current Implementation Status
@@ -63,20 +71,26 @@ Create `.env` from `.env.example`.
 ## Project Structure
 ```
 src/
-├── components/
+├── components/             # Shared UI components (PascalCase naming)
 │   ├── DebugPanel.astro        # Reusable debug panel component
-│   └── LanguageSelector.astro  # Multi-language switcher component
-├── config.ts                   # Environment variable configuration
-├── services/
-│   └── cms.ts                  # CMS API service with HTTP request tracking
-├── layouts/
+│   ├── LanguageSelector.astro  # Multi-language switcher component
+│   ├── NavigationBar.astro     # Site navigation component
+│   ├── HeroSection.astro       # Homepage hero component
+│   ├── ArticleCard.astro       # Individual article display
+│   └── ArticleGrid.astro       # Article listing component
+├── layouts/                # Long-form page layouts
 │   └── Layout.astro            # Base layout with brand integration
-├── utils/
+├── pages/                  # Route files and localized content
+│   ├── index.astro             # Homepage with dynamic content
+│   └── [lang]/
+│       ├── index.astro         # Localized homepage
+│       └── [...slug].astro     # Dynamic internationalized routes
+├── services/               # CMS/API accessors
+│   └── cms.ts                  # CMS API service with HTTP request tracking
+├── utils/                  # Utilities (camelCase naming)
 │   └── language.ts             # Language utilities and mapping
-└── pages/
-    ├── index.astro             # Homepage with dynamic content
-    └── [lang]/
-        └── [...slug].astro     # Dynamic internationalized routes
+├── config.ts               # Environment variable configuration
+public/                     # Static assets
 ```
 
 ---
@@ -132,20 +146,34 @@ Returns array of all authors with bio, avatar, and social links.
 
 ## Development
 
-**Start Development Server:**
+**Build, Test, and Development Commands:**
 ```bash
-npm run dev
+npm install              # Install dependencies
+npm run dev             # Start local development server
+npm run build           # Generate static site in dist/
+npm run preview         # Verify production build
+npm run astro -- check  # Lint Astro/TypeScript templates
+npm run test            # Run unit and integration tests with Vitest
+npm run test:watch      # Run tests in watch mode
+npm run test:coverage   # Run tests with coverage report
 ```
 
-**Build for Production:**
-```bash
-npm run build
-```
+### Testing Expectations
+
+- Every feature or bug fix must ship with automated tests. Prefer colocated `*.test.ts` / `*.spec.ts` files and cover both happy-path and edge cases.
+- The Vitest suite currently covers locale utilities, CMS services, localized homepage loading, layout/fallback UI, and core components (NavigationBar, HeroSection, ArticleCard/Grid, DebugPanel, NoWebsiteFallback).
+- Keep these specs up to date as behaviour changes. Add component/service coverage alongside new functionality before merging.
+- When updating workflow guidance, mirror the change in both `AGENTS.md` and `CLAUDE.md` so all assistants share the same instructions.
 
 **Environment Setup:**
 1. Copy `.env.example` to `.env`
 2. Set your CMS credentials and website API name
 3. Start development server
+
+**Required Environment Variables:**
+- `CMS_URL`: CMS endpoint URL
+- `CMS_API_TOKEN`: API authentication token
+- `WEBSITE_API_NAME`: Site identifier for content filtering
 
 ---
 
@@ -295,3 +323,51 @@ const articles = await getArticles();
   }}
 />
 ```
+
+---
+
+## Testing Guidelines
+
+**Test Coverage:**
+- Unit and integration tests run with Vitest
+- Component tests for UI elements (NavigationBar, HeroSection, ArticleCard/Grid)
+- Service tests for CMS integration and locale utilities
+- Test files use `*.test.ts` or `*.spec.ts` naming convention
+
+**Testing Requirements:**
+- Accompany all feature work and bug fixes with automated tests
+- Target both happy-path and edge-case behavior
+- Validate multiple locales and CMS fallbacks before pull requests
+- Keep test suite up to date as repository evolves
+
+---
+
+## Commit & Pull Request Guidelines
+
+**Commit Standards:**
+- Use imperative tone and concise scope (e.g., `Implement full internationalization with language routing`)
+- Reference linked issues or CMS schema updates in commit body when relevant
+- Keep commits focused on one logical change
+- Follow conventional commit format where applicable
+
+**Pull Request Requirements:**
+- Include summary and description of changes
+- Add screenshots for UI work
+- Document impacted locales and languages
+- Include any required Strapi seed data or environment variable updates
+- Ensure all tests pass before requesting review
+
+---
+
+## CMS & Localization Notes
+
+**CMS Configuration:**
+- Treat production CMS content as source of truth
+- Avoid hardcoding copy in components beyond sensible fallbacks
+- When adding locales, update Strapi first, then confirm routing picks up new locale
+- Ensure `getStaticPaths` and language selectors support new locales
+
+**Content Management:**
+- All content filtered by `WEBSITE_API_NAME` for multi-site deployment
+- Localized content automatically filtered by language parameter
+- CMS-driven branding ensures consistent visual identity across deployments
