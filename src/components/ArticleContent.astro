@@ -1,0 +1,307 @@
+---
+import { config } from '../config';
+import type { Article } from '../services/cms';
+import { marked } from 'marked';
+
+interface Props {
+  article: Article;
+  backHref: string;
+  backLabel: string;
+  accentColor: string;
+  locale: string;
+}
+
+const { article, backHref, backLabel, accentColor, locale } = Astro.props as Props;
+
+function resolveMediaUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  if (!config.cmsUrl) {
+    return path;
+  }
+  const normalizedBase = config.cmsUrl.replace(/\/$/, '');
+  return `${normalizedBase}${path}`;
+}
+
+function computeReadingTime(body?: string | null): number | null {
+  if (!body) return null;
+  const words = body.trim().split(/\s+/).length;
+  if (!words) return null;
+  return Math.max(1, Math.round(words / 200));
+}
+
+const coverImageUrl = resolveMediaUrl(article.coverImage?.url) ?? '/images/placeholder.jpg';
+const coverAlt = article.coverImage?.alternativeText || article.title;
+const publishedDate = article.publishedAt || article.updatedAt || article.createdAt;
+const formattedDate = new Date(publishedDate).toLocaleDateString(locale || 'en', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+const readingTime = article.readingTime ?? computeReadingTime(article.body);
+const authorName = article.author?.name || null;
+const tagNames = Array.isArray(article.tags) ? article.tags.map((tag) => tag.name).filter(Boolean) : [];
+const hasBody = Boolean(article.body && article.body.trim().length > 0);
+const articleSummary = article.summary || '';
+const fallbackBodyMessage = 'This article is being translated. Please check back soon for the full story.';
+
+// Configure marked for better HTML output
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
+
+// Process article body - handle both HTML and Markdown
+function processArticleBody(body: string): string {
+  if (!body) return '';
+
+  // Check if content looks like HTML (contains HTML tags)
+  const htmlTagRegex = /<[^>]*>/;
+  const hasHtmlTags = htmlTagRegex.test(body);
+
+  if (hasHtmlTags) {
+    // Already HTML, return as-is
+    return body;
+  } else {
+    // Treat as Markdown and convert to HTML
+    return marked(body) as string;
+  }
+}
+
+const processedBody = hasBody ? processArticleBody(article.body) : '';
+---
+
+<article class="article-shell">
+  <a href={backHref} class="back-link">
+    ← {backLabel}
+  </a>
+
+  <header class="article-header">
+    <h1>{article.title}</h1>
+    <div class="article-meta">
+      <span>{formattedDate}</span>
+      {readingTime && <span>⏱ {readingTime} min</span>}
+      {authorName && <span>✍️ {authorName}</span>}
+      {tagNames.length > 0 && (
+        <span>
+          🏷️ {tagNames.join(', ')}
+        </span>
+      )}
+    </div>
+    {articleSummary && (
+      <p class="article-summary">
+        {articleSummary}
+      </p>
+    )}
+  </header>
+
+  {coverImageUrl && (
+    <figure class="article-cover">
+      <img src={coverImageUrl} alt={coverAlt} loading="lazy" />
+      {article.coverImage?.alternativeText && (
+        <figcaption>{article.coverImage.alternativeText}</figcaption>
+      )}
+    </figure>
+  )}
+
+  <div class={`article-body${hasBody ? '' : ' placeholder'}`}>
+    {hasBody ? (
+      <div set:html={processedBody} />
+    ) : (
+      <p>{fallbackBodyMessage}</p>
+    )}
+  </div>
+</article>
+
+<style define:vars={{ accent: accentColor }}>
+  .article-shell {
+    background: white;
+    border-radius: 16px;
+    padding: 2.5rem;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+    display: grid;
+    gap: 2rem;
+  }
+
+  .back-link {
+    color: var(--accent, #ff6b35);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: fit-content;
+  }
+
+  .back-link:hover {
+    text-decoration: underline;
+  }
+
+  .article-header h1 {
+    margin: 0 0 1rem;
+    font-size: 2.4rem;
+    line-height: 1.15;
+    color: var(--brand-text, #0f172a);
+  }
+
+  .article-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.95rem;
+    color: var(--brand-text, #6b7280);
+    opacity: 0.7;
+  }
+
+  .article-summary {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin: 1.5rem 0 0;
+    color: var(--brand-text, #374151);
+  }
+
+  .article-cover {
+    margin: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #0f172a;
+  }
+
+  .article-cover img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+  }
+
+  .article-cover figcaption {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.75);
+    padding: 0.85rem 1.5rem;
+    background: rgba(15, 23, 42, 0.8);
+  }
+
+  .article-body {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: var(--brand-text, #1f2937);
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .article-body :global(h2) {
+    font-size: 1.8rem;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--brand-text, #0f172a);
+  }
+
+  .article-body :global(h3) {
+    font-size: 1.4rem;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    color: var(--brand-text, #111827);
+  }
+
+  .article-body :global(p) {
+    margin: 0;
+  }
+
+  .article-body :global(a) {
+    color: var(--accent, #ff6b35);
+    text-decoration: underline;
+  }
+
+  .article-body :global(blockquote) {
+    border-left: 4px solid var(--accent, #ff6b35);
+    margin: 0;
+    padding: 0.75rem 1.5rem;
+    background: var(--brand-secondary, rgba(254, 215, 170, 0.25));
+    border-radius: 0 12px 12px 0;
+    color: var(--brand-text, #9a3412);
+    font-style: italic;
+    opacity: 0.9;
+  }
+
+  .article-body :global(ul),
+  .article-body :global(ol) {
+    padding-left: 1.5rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .article-body :global(li) {
+    margin: 0.25rem 0;
+  }
+
+  .article-body :global(strong) {
+    font-weight: 600;
+    color: var(--brand-text, #111827);
+  }
+
+  .article-body :global(em) {
+    font-style: italic;
+  }
+
+  .article-body :global(code) {
+    background: var(--brand-background, #f1f5f9);
+    color: var(--brand-text, #475569);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    border: 1px solid var(--brand-secondary, #e5e7eb);
+  }
+
+  .article-body :global(pre) {
+    background: var(--brand-text, #1e293b);
+    color: var(--brand-background, #e2e8f0);
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  }
+
+  .article-body :global(pre code) {
+    background: none;
+    color: inherit;
+    padding: 0;
+    border: none;
+  }
+
+  .article-body :global(img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .article-body :global(hr) {
+    border: none;
+    height: 1px;
+    background: var(--brand-secondary, #e5e7eb);
+    margin: 2rem 0;
+  }
+
+  .article-body.placeholder {
+    text-align: center;
+    color: var(--brand-text, #6b7280);
+    opacity: 0.7;
+  }
+
+  @media (max-width: 768px) {
+    .article-shell {
+      padding: 1.5rem;
+    }
+
+    .article-header h1 {
+      font-size: 2rem;
+    }
+
+    .article-body {
+      font-size: 1rem;
+    }
+  }
+</style>

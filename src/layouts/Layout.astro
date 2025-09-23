@@ -4,11 +4,12 @@ import type { Website, MediaAsset, NavMenuItem, NavLinkGroup } from '../services
 
 interface Props {
   title?: string;
+  description?: string;
   websiteData?: Website | null;
   currentLocale?: string;
 }
 
-const { title, websiteData, currentLocale } = Astro.props as Props;
+const { title, description, websiteData, currentLocale } = Astro.props as Props;
 const siteName = websiteData?.header?.brandDisplayName || websiteData?.name || 'Astro Site';
 const pageTitle = title ? `${title} | ${siteName}` : siteName;
 const activeLocale = currentLocale || websiteData?.locale || websiteData?.defaultLocale || 'en';
@@ -68,7 +69,7 @@ const logoAsset = websiteData?.brand?.logo ?? null;
 const faviconAsset = websiteData?.brand?.favicon ?? null;
 const logoUrl = getAssetUrl(logoAsset);
 const faviconUrl = getAssetUrl(faviconAsset) || '/favicon.svg';
-const metaDescription = websiteData?.seoDefaults?.metaDescription || 'Astro description';
+const metaDescription = description ?? (websiteData?.seoDefaults?.metaDescription || 'Astro description');
 const footerContent = websiteData?.footer;
 const footerLinkGroups: NavLinkGroup[] = footerContent?.linkGroups ?? [];
 

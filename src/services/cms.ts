@@ -115,6 +115,7 @@ export interface SystemLabels {
   searchPlaceholder?: string | null;
   readMoreLabel?: string | null;
   backToHomeLabel?: string | null;
+  relatedArticlesLabel?: string | null;
 }
 
 export interface ThemePaletteSet {
@@ -163,6 +164,13 @@ export interface Website {
   publishedAt: string;
 }
 
+export interface ArticleLocalization {
+  id: number;
+  documentId: string;
+  locale: string;
+  slug: string;
+}
+
 export interface Article {
   id: number;
   documentId: string;
@@ -170,6 +178,7 @@ export interface Article {
   slug: string;
   summary: string;
   body: string;
+  locale: string;
   coverImage?: {
     url: string;
     alternativeText: string;
@@ -179,6 +188,7 @@ export interface Article {
   website?: Website;
   tags?: Tag[];
   author?: Author;
+  localizations?: ArticleLocalization[];
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
@@ -484,6 +494,50 @@ export async function getLocalizedWebsiteData(locale: string): Promise<Website |
 
   console.warn(`Website data not found for locale "${locale}". Falling back to default locale.`);
   return fetchWebsite();
+}
+
+export async function getArticleBySlug(slug: string, locale?: string): Promise<Article | null> {
+  try {
+    if (!config.cmsUrl) {
+      console.error('CMS_URL environment variable is not configured.');
+      return null;
+    }
+
+    if (!config.websiteApiName) {
+      console.error('WEBSITE_API_NAME environment variable is not configured.');
+      return null;
+    }
+
+    const baseUrl = config.cmsUrl.replace(/\/$/, '');
+    const params = new URLSearchParams();
+    params.set('filters[website][apiName][$eq]', config.websiteApiName);
+    params.set('filters[slug][$eq]', slug);
+    params.set('populate', '*');
+    params.set('pagination[page]', '1');
+    params.set('pagination[pageSize]', '1');
+
+    if (locale) {
+      params.set('locale', locale);
+    }
+
+    const url = `${baseUrl}/api/articles?${params.toString()}`;
+
+    const result: CMSResponse<Article[]> = await trackHttpRequest(url, {
+      headers: {
+        'Authorization': `Bearer ${config.cmsApiToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!Array.isArray(result.data) || result.data.length === 0) {
+      return null;
+    }
+
+    return result.data[0] ?? null;
+  } catch (error) {
+    console.error(`Error fetching article with slug "${slug}":`, error);
+    return null;
+  }
 }
 
 export async function getArticles(locale?: string): Promise<Article[]> {

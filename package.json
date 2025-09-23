@@ -12,7 +12,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "astro": "^5.13.7"
+    "astro": "^5.13.7",
+    "marked": "^16.3.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.8.0",

@@ -1,0 +1,96 @@
+---
+import ArticleCard from './ArticleCard.astro';
+
+interface ArticleRecord {
+  title: string;
+  slug: string;
+  summary?: string | null;
+  updatedAt: string;
+  readingTime?: number | null;
+  tags?: Array<{ name: string }>;
+  coverImage?: { url?: string | null; alternativeText?: string | null } | null;
+}
+
+interface Props {
+  articles: ArticleRecord[];
+  locale: string;
+  readMoreLabel: string;
+  summaryFallback: string;
+  title: string;
+  description?: string;
+  accentColor: string;
+}
+
+const {
+  articles = [],
+  locale,
+  readMoreLabel,
+  summaryFallback,
+  title,
+  description,
+  accentColor,
+} = Astro.props as Props;
+
+const visibleArticles = articles.slice(0, 3);
+---
+
+{visibleArticles.length > 0 && (
+  <section class="related-section">
+    <div class="related-heading">
+      <h2>{title}</h2>
+      {description && <p>{description}</p>}
+    </div>
+    <div class="related-grid">
+      {visibleArticles.map((article) => (
+        <ArticleCard
+          article={article}
+          locale={locale}
+          readMoreLabel={readMoreLabel}
+          summaryFallback={summaryFallback}
+          variant="medium"
+        />
+      ))}
+    </div>
+  </section>
+)}
+
+<style define:vars={{ accent: accentColor }}>
+  .related-section {
+    margin-top: 4rem;
+    display: grid;
+    gap: 2rem;
+  }
+
+  .related-heading h2 {
+    font-size: 2rem;
+    margin: 0 0 0.75rem;
+    color: #0f172a;
+  }
+
+  .related-heading p {
+    margin: 0;
+    color: #4b5563;
+    font-size: 1rem;
+    max-width: 640px;
+  }
+
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 2rem;
+  }
+
+  .related-grid :global(.article-card) {
+    border-top: 4px solid var(--accent, #ff6b35);
+  }
+
+  @media (max-width: 768px) {
+    .related-section {
+      margin-top: 3rem;
+    }
+
+    .related-heading h2 {
+      font-size: 1.6rem;
+    }
+  }
+</style>
