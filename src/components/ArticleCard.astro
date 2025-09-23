@@ -1,0 +1,219 @@
+---
+import { config } from '../config';
+
+interface ArticleTag {
+  name: string;
+}
+
+interface ArticleCover {
+  url?: string | null;
+  alternativeText?: string | null;
+}
+
+interface ArticleRecord {
+  title: string;
+  slug: string;
+  summary?: string | null;
+  updatedAt: string;
+  readingTime?: number | null;
+  tags?: ArticleTag[];
+  coverImage?: ArticleCover | null;
+}
+
+type Variant = 'featured' | 'small' | 'medium';
+
+interface Props {
+  article: ArticleRecord;
+  locale: string;
+  variant?: Variant;
+  readMoreLabel: string;
+  summaryFallback: string;
+}
+
+const {
+  article,
+  locale,
+  variant = 'medium',
+  readMoreLabel,
+  summaryFallback,
+} = Astro.props as Props;
+
+function resolveMediaUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  if (!config.cmsUrl) {
+    return path;
+  }
+  const normalizedBase = config.cmsUrl.replace(/\/$/, '');
+  return `${normalizedBase}${path}`;
+}
+
+const coverImageUrl = resolveMediaUrl(article.coverImage?.url) ?? '/images/placeholder.jpg';
+const coverAlt = article.coverImage?.alternativeText || article.title;
+const articleHref = `/${locale}/articles/${article.slug}`.replace(/\/+/, '/');
+const formattedDate = new Date(article.updatedAt).toLocaleDateString(locale || 'en', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+});
+const summaryText = article.summary || summaryFallback;
+const tagLabel = article.tags?.[0]?.name;
+---
+
+<article class={`article-card ${variant}`}>
+  <img src={coverImageUrl} alt={coverAlt} class="article-image" loading="lazy" />
+  <div class="article-content">
+    <div class="article-meta">
+      <span>📅 {formattedDate}</span>
+      {article.readingTime && <span>⏱ {article.readingTime} min read</span>}
+      {tagLabel && <span>🏷️ {tagLabel}</span>}
+    </div>
+    <h3 class="article-title">
+      <a href={articleHref}>{article.title}</a>
+    </h3>
+    <p class={`article-summary${article.summary ? '' : ' placeholder'}`}>
+      {summaryText}
+    </p>
+    <a href={articleHref} class="read-more">
+      {readMoreLabel}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="m9 18 6-6-6-6" />
+      </svg>
+    </a>
+  </div>
+</article>
+
+<style>
+  .article-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .article-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
+  }
+
+  .article-image {
+    width: 100%;
+    height: 240px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+
+  .article-card:hover .article-image {
+    transform: scale(1.03);
+  }
+
+  .article-content {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
+  }
+
+  .article-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #6b7280;
+    flex-wrap: wrap;
+  }
+
+  .article-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.35;
+  }
+
+  .article-title a {
+    color: #1f2937;
+    text-decoration: none;
+    transition: color 0.2s ease;
+    display: inline-block;
+  }
+
+  .article-title a:hover {
+    color: #ff6b35;
+  }
+
+  .article-summary {
+    color: #6b7280;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .article-summary.placeholder {
+    opacity: 0.7;
+    font-style: italic;
+  }
+
+  .read-more {
+    color: #ff6b35;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: gap 0.2s ease;
+    margin-top: auto;
+  }
+
+  .read-more:hover {
+    gap: 0.75rem;
+  }
+
+  .article-card.small .article-image {
+    height: 160px;
+  }
+
+  .article-card.small .article-content {
+    padding: 1.25rem;
+  }
+
+  .article-card.small .article-title {
+    font-size: 1.25rem;
+  }
+
+  .article-card.medium .article-image {
+    height: 200px;
+  }
+
+  .article-card.featured .article-image {
+    height: 300px;
+  }
+
+  .article-card.featured .article-content {
+    padding: 1.75rem;
+  }
+
+  .article-card.featured .article-title {
+    font-size: 2rem;
+  }
+
+  @media (max-width: 768px) {
+    .article-image {
+      height: 220px;
+    }
+
+    .article-card.featured .article-image {
+      height: 240px;
+    }
+
+    .article-card.featured .article-title {
+      font-size: 1.6rem;
+    }
+  }
+</style>

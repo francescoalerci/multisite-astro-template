@@ -3,6 +3,8 @@
 ## Project Structure & Module Organization
 The Astro app lives under `src`, with route files in `src/pages` and localized content served from `src/pages/[lang]/index.astro`. Shared UI lives in `src/components`, long-form layouts in `src/layouts`, and CMS/API accessors in `src/services/cms.ts`. Utilities such as locale helpers belong in `src/utils`, while static assets reside in `public`. Build and TypeScript settings are centralized in `astro.config.mjs` and `tsconfig.json`.
 
+Key homepage elements (navigation, hero, article grid, CMS fallback) are now extracted into dedicated components under `src/components`. New UI work should follow this component-first approach so that pages focus on data loading and orchestration while presentation logic remains encapsulated and reusable.
+
 ## Build, Test, and Development Commands
 Install dependencies with `npm install`. Run `npm run dev` for the local development server, `npm run build` to generate the static site in `dist`, and `npm run preview` to verify the production build. Use `npm run astro -- check` to lint Astro/TypeScript templates and surface configuration issues before committing.
 
