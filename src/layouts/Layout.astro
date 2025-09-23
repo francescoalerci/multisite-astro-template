@@ -118,11 +118,16 @@ function resolveFooterHref(item: NavMenuItem, locale: string): string {
         margin: 0 auto;
         display: flex;
         flex-direction: column;
+        gap: 2rem;
+      }
+      .footer-main {
+        display: flex;
+        flex-direction: column;
         gap: 1.5rem;
       }
       .footer-brand {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 1rem;
       }
       .footer-logo {
@@ -147,9 +152,10 @@ function resolveFooterHref(item: NavMenuItem, locale: string): string {
         max-width: 540px;
       }
       .footer-links {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2.5rem;
+        justify-content: flex-start;
       }
       .footer-link-column strong {
         display: block;
@@ -184,6 +190,22 @@ function resolveFooterHref(item: NavMenuItem, locale: string): string {
         border-top: 1px solid currentColor;
         padding-top: 1.5rem;
       }
+      @media (min-width: 768px) {
+        .footer-main {
+          flex-direction: row;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 2rem;
+        }
+        .footer-brand {
+          flex: 0 1 420px;
+        }
+        .footer-links {
+          flex: 1 1 auto;
+          justify-content: flex-end;
+          margin-left: auto;
+        }
+      }
     </style>
   </head>
   <body style={brandStyles || undefined}>
@@ -192,46 +214,48 @@ function resolveFooterHref(item: NavMenuItem, locale: string): string {
     </main>
     <footer class="site-footer">
       <div class="footer-inner">
-        <div class="footer-brand">
-          {logoUrl && (
-            <img src={logoUrl} alt={logoAsset?.alternativeText || `${siteName} logo`} class="footer-logo" loading="lazy" />
-          )}
-          <div class="footer-brand-copy">
-            <strong>{siteName}</strong>
-            {footerContent?.aboutText && (
-              <div class="footer-about" set:html={footerContent.aboutText}></div>
+        <div class="footer-main">
+          <div class="footer-brand">
+            {logoUrl && (
+              <img src={logoUrl} alt={logoAsset?.alternativeText || `${siteName} logo`} class="footer-logo" loading="lazy" />
             )}
+            <div class="footer-brand-copy">
+              <strong>{siteName}</strong>
+              {footerContent?.aboutText && (
+                <div class="footer-about" set:html={footerContent.aboutText}></div>
+              )}
+            </div>
           </div>
+          {footerLinkGroups.length > 0 && (
+            <div class="footer-links">
+              {footerLinkGroups.map((group) => (
+                <div class="footer-link-column">
+                  {group.groupTitle && <strong>{group.groupTitle}</strong>}
+                  {group.links.length > 0 && (
+                    <ul>
+                      {group.links.map((link) => {
+                        const href = resolveFooterHref(link, activeLocale);
+                        const isExternal = link.linkType === 'external_url';
+                        const openInNewTab = Boolean(link.openInNewTab || isExternal);
+                        return (
+                          <li>
+                            <a
+                              href={href}
+                              target={openInNewTab ? '_blank' : undefined}
+                              rel={openInNewTab ? 'noopener noreferrer' : undefined}
+                            >
+                              {link.label}
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        {footerLinkGroups.length > 0 && (
-          <div class="footer-links">
-            {footerLinkGroups.map((group) => (
-              <div class="footer-link-column">
-                {group.groupTitle && <strong>{group.groupTitle}</strong>}
-                {group.links.length > 0 && (
-                  <ul>
-                    {group.links.map((link) => {
-                      const href = resolveFooterHref(link, activeLocale);
-                      const isExternal = link.linkType === 'external_url';
-                      const openInNewTab = Boolean(link.openInNewTab || isExternal);
-                      return (
-                        <li>
-                          <a
-                            href={href}
-                            target={openInNewTab ? '_blank' : undefined}
-                            rel={openInNewTab ? 'noopener noreferrer' : undefined}
-                          >
-                            {link.label}
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
         <div class="footer-meta">
           <span>{footerContent?.copyrightText || `© ${currentYear} ${siteName}. All rights reserved.`}</span>
         </div>
