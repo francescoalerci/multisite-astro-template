@@ -1,0 +1,292 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import NavigationBar from '../../../components/NavigationBar.astro';
+import ArticleContent from '../../../components/ArticleContent.astro';
+import RelatedArticles from '../../../components/RelatedArticles.astro';
+import NoWebsiteFallback from '../../../components/NoWebsiteFallback.astro';
+import DebugPanel from '../../../components/DebugPanel.astro';
+import { config } from '../../../config';
+import {
+  getWebsiteData,
+  getLocalizedWebsiteData,
+  getArticles,
+  getTags,
+  getArticleBySlug,
+  type NavMenuItem,
+  type Article,
+} from '../../../services/cms';
+import { isValidLanguage, getDefaultLanguage } from '../../../utils/language';
+
+export async function getStaticPaths() {
+  try {
+    const websiteData = await getWebsiteData();
+    const locales = websiteData
+      ? (websiteData.supportedLocales.length > 0 ? websiteData.supportedLocales : [websiteData.defaultLocale])
+      : ['en', 'pt', 'es', 'fr', 'it'];
+
+    const articlesByLocale = await Promise.all(
+      locales.map(async (locale) => {
+        try {
+          return await getArticles(locale);
+        } catch (error) {
+          console.error(`Error fetching articles for locale "${locale}" in getStaticPaths:`, error);
+          return [];
+        }
+      })
+    );
+
+    const paths = articlesByLocale.flatMap((articles, index) => {
+      const locale = locales[index];
+      return articles.map((article) => ({
+        params: { lang: locale, slug: article.slug },
+      }));
+    });
+
+    return paths;
+  } catch (error) {
+    console.error('Error generating article paths:', error);
+    return [];
+  }
+}
+
+const { lang, slug } = Astro.params;
+const requestedLocale = typeof lang === 'string' ? lang : undefined;
+const requestedSlug = typeof slug === 'string' ? slug : undefined;
+
+let websiteData = null;
+let article: Article | null = null;
+let relatedArticles: Article[] = [];
+let tags = [];
+let supportedLocales: string[] = [];
+
+try {
+  if (!requestedSlug) {
+    throw new Error('Missing article slug parameter');
+  }
+
+  if (requestedLocale) {
+    websiteData = await getLocalizedWebsiteData(requestedLocale);
+  } else {
+    websiteData = await getWebsiteData();
+  }
+
+  if (!websiteData) {
+    throw new Error('Website data unavailable');
+  }
+
+  supportedLocales = websiteData.supportedLocales.length > 0
+    ? websiteData.supportedLocales
+    : [websiteData.defaultLocale];
+
+  const fallbackLocale = getDefaultLanguage(supportedLocales, websiteData.defaultLocale);
+
+  if (!requestedLocale) {
+    return Astro.redirect(`/${fallbackLocale}/articles/${requestedSlug}`);
+  }
+
+  if (!isValidLanguage(requestedLocale, supportedLocales) || websiteData.locale !== requestedLocale) {
+    return Astro.redirect(`/${fallbackLocale}/articles/${requestedSlug}`);
+  }
+
+  article = await getArticleBySlug(requestedSlug, requestedLocale);
+
+  if (!article && requestedLocale !== fallbackLocale) {
+    const fallbackArticle = await getArticleBySlug(requestedSlug, fallbackLocale);
+    if (fallbackArticle) {
+      return Astro.redirect(`/${fallbackLocale}/articles/${fallbackArticle.slug}`);
+    }
+  }
+
+  if (!article) {
+    Astro.response.status = 404;
+  } else {
+    relatedArticles = (await getArticles(requestedLocale)).filter((item) => item.slug !== article?.slug);
+  }
+
+  tags = await getTags(requestedLocale);
+} catch (error) {
+  console.error('Error loading article page data:', error);
+  websiteData = null;
+  supportedLocales = [];
+  article = null;
+  relatedArticles = [];
+  tags = [];
+}
+
+const activeLocale = websiteData?.locale ?? requestedLocale ?? 'en';
+const themePalette = websiteData?.theme?.palette;
+const brandColor = websiteData?.theme?.brandColor ?? themePalette?.primary ?? '#FF8A00';
+const backgroundColor = themePalette?.background ?? '#FFFFFF';
+const surfaceColor = themePalette?.surface ?? '#F6F7F9';
+const textColor = themePalette?.neutral ?? '#111827';
+const mutedColor = themePalette?.muted ?? '#6b7280';
+
+function resolveMediaUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  if (!config.cmsUrl) {
+    return path;
+  }
+  const normalizedBase = config.cmsUrl.replace(/\/$/, '');
+  return `${normalizedBase}${path}`;
+}
+
+const brandDisplayName = websiteData?.header?.brandDisplayName ?? websiteData?.name ?? 'Multisite Travel';
+const tagline = websiteData?.header?.tagline ?? websiteData?.seoDefaults?.metaDescription ?? '';
+const brandLogo = websiteData?.brand?.logo ?? null;
+const brandLogoUrl = resolveMediaUrl(brandLogo?.fullUrl ?? brandLogo?.url) ?? null;
+
+const readMoreLabel = websiteData?.systemLabels?.readMoreLabel ?? 'Read more';
+const backToHomeLabel = websiteData?.systemLabels?.backToHomeLabel ?? 'Back to home';
+const relatedArticlesLabel = websiteData?.systemLabels?.relatedArticlesLabel ?? 'More articles';
+const relatedArticlesDescription = tagline || 'Discover more stories from our editors.';
+
+const seoTitle = article?.seo?.metaTitle ?? article?.title ?? brandDisplayName;
+const seoDescription = article?.seo?.metaDescription ?? article?.summary ?? tagline;
+const summaryFallback = websiteData?.seoDefaults?.metaDescription || 'Full story preview coming soon. Check back shortly for the highlights.';
+
+const primaryNav: NavMenuItem[] = websiteData?.header?.primaryNav ?? [];
+
+function resolveNavHref(item: NavMenuItem, locale: string): string {
+  if (item.linkType === 'external_url') {
+    return item.url || '#';
+  }
+
+  const path = item.path ? (item.path.startsWith('/') ? item.path : `/${item.path}`) : '';
+  const localized = `/${locale}${path}`;
+  return localized.replace(/\/+$/, '') || `/${locale}`;
+}
+
+const navLinks = primaryNav.length > 0
+  ? primaryNav.map((item) => ({
+      label: item.label,
+      href: resolveNavHref(item, activeLocale),
+      openInNewTab: Boolean(item.openInNewTab || item.linkType === 'external_url'),
+    }))
+  : tags.slice(0, 5).map((tag) => ({
+      label: tag.name,
+      href: `/${activeLocale}/tag/${tag.slug}`,
+      openInNewTab: false,
+    }));
+---
+
+<Layout title={seoTitle} description={seoDescription} websiteData={websiteData} currentLocale={activeLocale}>
+  <style define:vars={{
+    background: backgroundColor,
+    text: textColor,
+    surface: surfaceColor,
+    muted: mutedColor,
+    accent: brandColor,
+  }}>
+    .page-container {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 0 2rem 4rem;
+      box-sizing: border-box;
+    }
+
+    .page-surface {
+      padding: 4rem 0;
+      background: var(--surface);
+    }
+
+    .not-found {
+      background: white;
+      border-radius: 16px;
+      padding: 3rem 2.5rem;
+      text-align: center;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .not-found h1 {
+      margin: 0;
+      font-size: 2rem;
+      color: #0f172a;
+    }
+
+    .not-found p {
+      margin: 0;
+      color: #4b5563;
+      font-size: 1.05rem;
+    }
+
+    .not-found a {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    @media (max-width: 768px) {
+      .page-container {
+        padding: 0 1.25rem 3rem;
+      }
+    }
+  </style>
+
+  {websiteData ? (
+    <>
+      <NavigationBar
+        homeHref={`/${activeLocale}`}
+        brandLogoUrl={brandLogoUrl}
+        brandLogoAlt={brandLogo?.alternativeText || `${brandDisplayName} logo`}
+        brandDisplayName={brandDisplayName}
+        navLinks={navLinks}
+        availableLocales={supportedLocales}
+        currentLocale={activeLocale}
+        currentPath={Astro.url.pathname}
+        accentColor={brandColor}
+      />
+
+      <section class="page-surface">
+        <div class="page-container">
+          {article ? (
+            <>
+              <ArticleContent
+                article={article}
+                backHref={`/${activeLocale}`}
+                backLabel={backToHomeLabel}
+                accentColor={brandColor}
+                locale={activeLocale}
+              />
+
+              <RelatedArticles
+                articles={relatedArticles}
+                locale={activeLocale}
+                readMoreLabel={readMoreLabel}
+                summaryFallback={summaryFallback}
+                title={relatedArticlesLabel}
+                description={relatedArticlesDescription}
+                accentColor={brandColor}
+              />
+            </>
+          ) : (
+            <div class="not-found">
+              <h1>Article not found</h1>
+              <p>The story you are looking for is unavailable in this language.</p>
+              <a href={`/${activeLocale}`}>{backToHomeLabel}</a>
+            </div>
+          )}
+        </div>
+      </section>
+    </>
+  ) : (
+    <NoWebsiteFallback />
+  )}
+
+  <DebugPanel
+    websiteData={websiteData}
+    articles={relatedArticles}
+    additionalInfo={{
+      'Active Locale': activeLocale,
+      'Supported Locales': supportedLocales.join(', '),
+      'Article Slug': requestedSlug,
+      'Article Found': Boolean(article),
+      'Related Articles': relatedArticles.length,
+      'Tag Count': tags.length,
+    }}
+  />
+</Layout>
