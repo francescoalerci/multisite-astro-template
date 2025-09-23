@@ -2,7 +2,9 @@
 import Layout from '../../layouts/Layout.astro';
 import DebugPanel from '../../components/DebugPanel.astro';
 import LanguageSelector from '../../components/LanguageSelector.astro';
+import { config } from '../../config';
 import { getWebsiteData, getLocalizedWebsiteData, getArticles, getTags } from '../../services/cms';
+import type { NavMenuItem } from '../../services/cms';
 import { isValidLanguage, getDefaultLanguage } from '../../utils/language';
 
 export async function getStaticPaths() {
@@ -22,7 +24,11 @@ export async function getStaticPaths() {
     }
 
     // Generate paths for each available locale
-    return websiteData.locales.map(locale => ({
+    const supportedLocales = websiteData.supportedLocales.length > 0
+      ? websiteData.supportedLocales
+      : [websiteData.defaultLocale];
+
+    return supportedLocales.map(locale => ({
       params: { lang: locale },
     }));
   } catch (error) {
@@ -39,58 +45,128 @@ export async function getStaticPaths() {
 }
 
 const { lang } = Astro.params;
-let websiteData, articles, tags;
+const requestedLocale = typeof lang === 'string' ? lang : undefined;
+
+let websiteData = null;
+let articles = [];
+let tags = [];
+let supportedLocales: string[] = [];
 
 try {
-  websiteData = await getWebsiteData();
-
-  // Validate language parameter
-  if (websiteData && lang && !isValidLanguage(lang, websiteData.locales)) {
-    return Astro.redirect(`/${getDefaultLanguage(websiteData.locales, websiteData.defaultLocale)}`);
+  if (requestedLocale) {
+    websiteData = await getLocalizedWebsiteData(requestedLocale);
+  } else {
+    websiteData = await getWebsiteData();
   }
 
-  // If no specific lang provided or invalid, use default
-  if (!lang) {
-    const defaultLang = websiteData?.defaultLocale || 'en';
+  if (websiteData) {
+    supportedLocales = websiteData.supportedLocales.length > 0
+      ? websiteData.supportedLocales
+      : [websiteData.defaultLocale];
+  }
+
+  if (!websiteData) {
+    throw new Error('Website data unavailable');
+  }
+
+  if (!requestedLocale) {
+    const defaultLang = getDefaultLanguage(supportedLocales, websiteData.defaultLocale);
     return Astro.redirect(`/${defaultLang}`);
   }
 
-  articles = await getArticles(lang);
-  tags = await getTags(lang);
+  if (!isValidLanguage(requestedLocale, supportedLocales) || websiteData.locale !== requestedLocale) {
+    const fallbackLocale = getDefaultLanguage(supportedLocales, websiteData.defaultLocale);
+    return Astro.redirect(`/${fallbackLocale}`);
+  }
+
+  articles = await getArticles(requestedLocale);
+  tags = await getTags(requestedLocale);
 } catch (error) {
   console.error('Error loading page data:', error);
-  // Set defaults for offline/error mode
   websiteData = null;
+  supportedLocales = [];
   articles = [];
   tags = [];
 }
 
-// Use brand colors from CMS with sensible defaults
-const brandColors = websiteData?.brandColors?.[0] || {
-  primary: '#FF6B35',
-  secondary: '#F8FAFC',
-  background: '#FFFFFF',
-  text: '#2D3748'
-};
+const activeLocale = websiteData?.locale ?? requestedLocale ?? 'en';
+const themePalette = websiteData?.theme?.palette;
+const brandColor = websiteData?.theme?.brandColor ?? themePalette?.primary ?? '#FF8A00';
+const secondaryColor = themePalette?.secondary ?? '#0EA5B5';
+const backgroundColor = themePalette?.background ?? '#FFFFFF';
+const surfaceColor = themePalette?.surface ?? '#F6F7F9';
+const textColor = themePalette?.neutral ?? '#111827';
+const mutedColor = themePalette?.muted ?? '#6b7280';
 
-const summaryFallback = 'Full story preview coming soon. Check back shortly for the highlights.';
+const brandDisplayName = websiteData?.header?.brandDisplayName ?? websiteData?.name ?? 'Multisite Travel';
+const tagline = websiteData?.header?.tagline ?? websiteData?.seoDefaults?.metaDescription ?? '';
+const heroBackgroundUrl = websiteData?.homepageHero?.image?.fullUrl ?? websiteData?.homepageHero?.image?.url ?? null;
+const heroImageAlt = websiteData?.homepageHero?.alt ?? brandDisplayName;
+const brandLogo = websiteData?.brand?.logo ?? null;
+const brandLogoUrl = brandLogo?.fullUrl ?? brandLogo?.url ?? null;
+
+const readMoreLabel = websiteData?.systemLabels?.readMoreLabel ?? 'Read more';
+const searchPlaceholder = websiteData?.systemLabels?.searchPlaceholder ?? 'Search articles…';
+const backToHomeLabel = websiteData?.systemLabels?.backToHomeLabel ?? 'Back to home';
+
+const seoTitle = websiteData?.seoDefaults?.metaTitle ?? brandDisplayName;
+const seoDescription = websiteData?.seoDefaults?.metaDescription ?? tagline;
+
+const sectionTitle = seoTitle;
+const sectionSubtitle = seoDescription;
+const summaryFallback = seoDescription || 'Full story preview coming soon. Check back shortly for the highlights.';
+const primaryNav: NavMenuItem[] = websiteData?.header?.primaryNav ?? [];
+
+function resolveNavHref(item: NavMenuItem, locale: string): string {
+  if (item.linkType === 'external_url') {
+    return item.url || '#';
+  }
+
+  const path = item.path ? (item.path.startsWith('/') ? item.path : `/${item.path}`) : '';
+  const localized = `/${locale}${path}`;
+  return localized.replace(/\/+$/, '') || `/${locale}`;
+}
+
+function resolveMediaUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  if (!config.cmsUrl) {
+    return path;
+  }
+  const normalizedBase = config.cmsUrl.replace(/\/$/, '');
+  return `${normalizedBase}${path}`;
+}
+
+function getCoverImageUrl(media?: { url?: string | null } | null): string | null {
+  if (!media || !media.url) {
+    return null;
+  }
+  return resolveMediaUrl(media.url);
+}
+const heroGradient = `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`;
+const heroBackgroundStyle = heroBackgroundUrl
+  ? `background-image: ${heroGradient}, url('${heroBackgroundUrl}');`
+  : `background-image: ${heroGradient};`;
 ---
 
-<Layout title="Home" websiteData={websiteData}>
+<Layout title={seoTitle} websiteData={websiteData} currentLocale={activeLocale}>
 
 	<style define:vars={{
-		primary: brandColors.primary,
-		secondary: brandColors.secondary,
-		background: brandColors.background,
-		text: brandColors.text
+		primary: brandColor,
+		secondary: secondaryColor,
+		background: backgroundColor,
+		text: textColor,
+		surface: surfaceColor,
+		muted: mutedColor
 	}}>
 		/* Wanderlust-inspired styles - CMS driven */
 		:root {
-			--orange: #FF6B35;
-			--blue: #4A90E2;
-			--surface: #f9fafb;
+			--orange: var(--primary);
+			--blue: var(--secondary);
 			--border-radius: 8px;
-			--text-secondary: #6b7280;
+			--text-secondary: var(--muted);
 		}
 
 		body {
@@ -173,7 +249,10 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 
 		/* Hero Section */
 		.hero {
-			background: linear-gradient(135deg, rgba(255, 107, 53, 0.9), rgba(74, 144, 226, 0.8));
+			background-image: linear-gradient(135deg, var(--primary), var(--secondary));
+			background-size: cover;
+			background-position: center;
+			background-repeat: no-repeat;
 			min-height: 60vh;
 			display: flex;
 			align-items: center;
@@ -514,29 +593,45 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 		<>
 			<!-- Navigation Header -->
 			<nav class="navbar">
-				<a href="/" class="navbar-brand">
-					{websiteData.logo && (
+				<a href={`/${activeLocale}`} class="navbar-brand">
+					{brandLogoUrl && (
 						<img
-							src={websiteData.logo.url.startsWith('http') ? websiteData.logo.url : `http://localhost:1337${websiteData.logo.url}`}
-							alt={websiteData.logo.alternativeText || 'Logo'}
+							src={brandLogoUrl}
+							alt={brandLogo?.alternativeText || `${brandDisplayName} logo`}
 							style="height: 24px;"
 						/>
 					)}
-					{websiteData.name}
+					{brandDisplayName}
 				</a>
 
 				<ul class="navbar-nav">
-					<li><a href="/">All Stories</a></li>
-					{tags.slice(0, 5).map(tag => (
-						<li><a href={`/tag/${tag.slug}`}>{tag.name}</a></li>
-					))}
+					{primaryNav.length > 0
+						? primaryNav.map((item) => {
+							const href = resolveNavHref(item, activeLocale);
+							const isExternal = item.linkType === 'external_url';
+							const openInNewTab = Boolean(item.openInNewTab || isExternal);
+							return (
+								<li>
+									<a
+										href={href}
+										target={openInNewTab ? '_blank' : undefined}
+										rel={openInNewTab ? 'noopener noreferrer' : undefined}
+									>
+										{item.label}
+									</a>
+								</li>
+							);
+						})
+						: tags.slice(0, 5).map(tag => (
+							<li><a href={`/${activeLocale}/tag/${tag.slug}`}>{tag.name}</a></li>
+						))}
 				</ul>
 
 				<div class="navbar-actions">
-					{websiteData?.locales && (
+					{supportedLocales.length > 0 && (
 						<LanguageSelector
-							availableLocales={websiteData.locales}
-							currentLang={lang}
+							availableLocales={supportedLocales}
+							currentLang={activeLocale}
 							currentPath={Astro.url.pathname}
 						/>
 					)}
@@ -544,13 +639,14 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 			</nav>
 
 			<!-- Hero Section -->
-			<section class="hero">
+			<section class="hero" style={heroBackgroundStyle}>
+				{heroBackgroundUrl && <span class="sr-only">{heroImageAlt}</span>}
 				<div class="hero-content">
-					<h1>Discover Your Next<br>Adventure</h1>
-					<p>Expert travel guides, hidden gems, and insider tips to make your journey unforgettable. From European cobblestone streets to tropical paradises.</p>
+					<h1>{brandDisplayName}</h1>
+					{tagline && <p>{tagline}</p>}
 					<div class="hero-buttons">
 						<a href="#articles" class="btn-hero btn-primary">
-							Explore Destinations
+							{readMoreLabel}
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 								<path d="m9 18 6-6-6-6"/>
 							</svg>
@@ -565,19 +661,18 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 
 				<!-- Articles Section -->
 				<section class="section" id="articles">
-					<h2 class="section-title">Latest Travel Stories</h2>
-					<p class="section-subtitle">Inspiring destinations, expert tips, and unforgettable experiences from around the world</p>
+					<h2 class="section-title">{sectionTitle}</h2>
+					{sectionSubtitle && (
+						<p class="section-subtitle">{sectionSubtitle}</p>
+					)}
 
 					{articles.length > 0 ? (
 						<div class="articles-grid">
 						<!-- Featured article on the left -->
 							{articles[0] && (
-								<article class="article-card featured">
-									<img
-										src={articles[0].coverImage ?
-											(articles[0].coverImage.url.startsWith('http') ? articles[0].coverImage.url : `http://localhost:1337${articles[0].coverImage.url}`) :
-											'/images/placeholder.jpg'
-										}
+									<article class="article-card featured">
+										<img
+										src={getCoverImageUrl(articles[0].coverImage) ?? '/images/placeholder.jpg'}
 										alt={articles[0].coverImage?.alternativeText || articles[0].title}
 										class="article-image"
 									/>
@@ -593,8 +688,8 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 										<p class={`article-summary${articles[0].summary ? '' : ' placeholder'}`}>
 											{articles[0].summary || summaryFallback}
 										</p>
-										<a href={`/articles/${articles[0].slug}`} class="read-more">
-											Read More
+										<a href={`/${activeLocale}/articles/${articles[0].slug}`} class="read-more">
+											{readMoreLabel}
 											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 												<path d="m9 18 6-6-6-6"/>
 											</svg>
@@ -608,10 +703,7 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 								{articles.slice(1, 3).map((article) => (
 									<article class="article-card small">
 										<img
-											src={article.coverImage ?
-												(article.coverImage.url.startsWith('http') ? article.coverImage.url : `http://localhost:1337${article.coverImage.url}`) :
-												'/images/placeholder.jpg'
-											}
+											src={getCoverImageUrl(article.coverImage) ?? '/images/placeholder.jpg'}
 											alt={article.coverImage?.alternativeText || article.title}
 											class="article-image"
 										/>
@@ -622,13 +714,13 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 												{article.tags?.[0] && <span>🏷️ {article.tags[0].name}</span>}
 											</div>
 											<h3 class="article-title">
-												<a href={`/articles/${article.slug}`}>{article.title}</a>
+											<a href={`/${activeLocale}/articles/${article.slug}`}>{article.title}</a>
 											</h3>
 											<p class={`article-summary${article.summary ? '' : ' placeholder'}`}>
 												{article.summary || summaryFallback}
 											</p>
-											<a href={`/articles/${article.slug}`} class="read-more">
-												Read More
+											<a href={`/${activeLocale}/articles/${article.slug}`} class="read-more">
+												{readMoreLabel}
 												<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 													<path d="m9 18 6-6-6-6"/>
 												</svg>
@@ -645,10 +737,7 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 								{articles.slice(3, 6).map((article) => (
 									<article class="article-card medium">
 										<img
-											src={article.coverImage ?
-												(article.coverImage.url.startsWith('http') ? article.coverImage.url : `http://localhost:1337${article.coverImage.url}`) :
-												'/images/placeholder.jpg'
-											}
+											src={getCoverImageUrl(article.coverImage) ?? '/images/placeholder.jpg'}
 											alt={article.coverImage?.alternativeText || article.title}
 											class="article-image"
 										/>
@@ -659,13 +748,13 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 												{article.tags?.[0] && <span>🏷️ {article.tags[0].name}</span>}
 											</div>
 											<h3 class="article-title">
-												<a href={`/articles/${article.slug}`}>{article.title}</a>
+											<a href={`/${activeLocale}/articles/${article.slug}`}>{article.title}</a>
 											</h3>
 											<p class={`article-summary${article.summary ? '' : ' placeholder'}`}>
 												{article.summary || summaryFallback}
 											</p>
-											<a href={`/articles/${article.slug}`} class="read-more">
-												Read More
+											<a href={`/${activeLocale}/articles/${article.slug}`} class="read-more">
+												{readMoreLabel}
 												<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 													<path d="m9 18 6-6-6-6"/>
 												</svg>
@@ -677,8 +766,8 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 						)}
 					) : (
 						<div style="text-align: center; padding: 3rem; color: #6b7280;">
-							<h3>No stories yet</h3>
-							<p>Check back soon for amazing travel stories and guides!</p>
+							<h3>{brandDisplayName}</h3>
+							<p>{tagline || searchPlaceholder}</p>
 						</div>
 					)}
 				</section>
@@ -706,12 +795,13 @@ const summaryFallback = 'Full story preview coming soon. Check back shortly for 
 		websiteData={websiteData}
 		articles={articles}
 		additionalInfo={{
-			"Current Language": lang,
+			"Active Locale": activeLocale,
+			"Supported Locales": supportedLocales.join(', '),
 			"Tags": tags.length,
 			"Tag Names": tags.map(t => t.name).join(", "),
-			"Logo": websiteData?.logo ? "Available" : "Not set",
-			"Favicon": websiteData?.favicon ? "Available" : "Not set",
-			"Brand Colors": websiteData?.brandColors?.length || 0
+			"Hero Image": websiteData?.homepageHero?.image ? "Available" : "Not set",
+			"Theme Brand Color": websiteData?.theme?.brandColor || '—',
+			"System Read More": readMoreLabel
 		}}
 	/>
 </Layout>

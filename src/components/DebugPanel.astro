@@ -65,20 +65,26 @@ const httpRequests = getHttpRequests();
             <strong style="color: #a78bfa; font-size: 0.7rem;">{websiteData.name}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
-            <span style="color: #d1d5db;">Base URL:</span>
-            <strong style="color: #34d399; font-size: 0.65rem;">{websiteData.baseUrl}</strong>
+            <span style="color: #d1d5db;">Display:</span>
+            <strong style="color: #34d399; font-size: 0.65rem;">{websiteData.header?.brandDisplayName || '—'}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
-            <span style="color: #d1d5db;">Locale:</span>
-            <strong style="color: #fbbf24;">{websiteData.defaultLocale}</strong>
+            <span style="color: #d1d5db;">Active Locale:</span>
+            <strong style="color: #fbbf24;">{websiteData.locale}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
-            <span style="color: #d1d5db;">Locales:</span>
-            <strong style="color: #f87171; font-size: 0.7rem;">{websiteData.locales.join(', ')}</strong>
+            <span style="color: #d1d5db;">Default Locale:</span>
+            <strong style="color: #f472b6;">{websiteData.defaultLocale}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
-            <span style="color: #d1d5db;">Brand:</span>
-            <strong style={`color: ${websiteData.brandColor}; font-size: 0.7rem;`}>{websiteData.brandColor}</strong>
+            <span style="color: #d1d5db;">Supported:</span>
+            <strong style="color: #f87171; font-size: 0.7rem;">{websiteData.supportedLocales.length > 0 ? websiteData.supportedLocales.join(', ') : '—'}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #d1d5db;">Theme Color:</span>
+            <strong style={`color: ${websiteData.theme?.brandColor || '#a78bfa'}; font-size: 0.7rem;`}>
+              {websiteData.theme?.brandColor || '—'}
+            </strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
             <span style="color: #d1d5db;">Updated:</span>
