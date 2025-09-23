@@ -7,12 +7,14 @@ Key homepage elements (navigation, hero, article grid, CMS fallback) are now ext
 
 ## Build, Test, and Development Commands
 Install dependencies with `npm install`. Run `npm run dev` for the local development server, `npm run build` to generate the static site in `dist`, and `npm run preview` to verify the production build. Use `npm run astro -- check` to lint Astro/TypeScript templates and surface configuration issues before committing.
+Unit and integration tests run with Vitest (`npm run test`), with watch/coverage helpers available via `npm run test:watch` and `npm run test:coverage`.
 
 ## Coding Style & Naming Conventions
 Follow the default Astro formatter (two-space indentation, trailing commas where valid) and keep components in PascalCase (`LanguageSelector.astro`) and utilities in camelCase (`getDefaultLanguage`). Co-locate component-specific styles inside the `.astro` file when practical; global styles and assets belong in `public` or a shared stylesheet. Environment access should flow through `src/config.ts` so CMS credentials and flags stay centralized.
 
 ## Testing Guidelines
 There is no automated test suite yet; sanity-check pages by running `npm run dev` and monitoring the in-app Debug Panel for Strapi calls. When adding tests, prefer colocated `*.test.ts` or `*.spec.ts` files inside the relevant directory and target critical services such as `getArticles`. Validate multiple locales and CMS fallbacks before opening a pull request.
+The initial Vitest suite covers locale utilities, the CMS service, and the localized homepage loader. Extend this with component tests whenever new UI pieces land.
 
 ## Commit & Pull Request Guidelines
 Commits follow an imperative tone and concise scope (e.g., `Implement full internationalization with language routing`). Reference linked issues or CMS schema updates in the body when relevant, and keep commits focused on one logical change. Pull requests should include a summary, screenshots for UI work, impacted locales, and any required Strapi seed data or environment variable updates.

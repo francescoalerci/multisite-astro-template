@@ -6,93 +6,26 @@ import HeroSection from '../../components/HeroSection.astro';
 import ArticleGrid from '../../components/ArticleGrid.astro';
 import NoWebsiteFallback from '../../components/NoWebsiteFallback.astro';
 import { config } from '../../config';
-import { getWebsiteData, getLocalizedWebsiteData, getArticles, getTags } from '../../services/cms';
 import type { NavMenuItem } from '../../services/cms';
-import { isValidLanguage, getDefaultLanguage } from '../../utils/language';
+import { generateStaticPaths, loadHomepage } from './page.server';
 
-export async function getStaticPaths() {
-  try {
-    const websiteData = await getWebsiteData();
-
-    if (!websiteData) {
-      // Return default paths if CMS is unavailable
-      console.warn('Website data not available, using default locales');
-      return [
-        { params: { lang: 'en' } },
-        { params: { lang: 'pt' } },
-        { params: { lang: 'es' } },
-        { params: { lang: 'fr' } },
-        { params: { lang: 'it' } },
-      ];
-    }
-
-    // Generate paths for each available locale
-    const supportedLocales = websiteData.supportedLocales.length > 0
-      ? websiteData.supportedLocales
-      : [websiteData.defaultLocale];
-
-    return supportedLocales.map(locale => ({
-      params: { lang: locale },
-    }));
-  } catch (error) {
-    console.error('Error in getStaticPaths:', error);
-    // Return default paths as fallback
-    return [
-      { params: { lang: 'en' } },
-      { params: { lang: 'pt' } },
-      { params: { lang: 'es' } },
-      { params: { lang: 'fr' } },
-      { params: { lang: 'it' } },
-    ];
-  }
-}
+export { generateStaticPaths as getStaticPaths } from './page.server';
 
 const { lang } = Astro.params;
 const requestedLocale = typeof lang === 'string' ? lang : undefined;
+const loadResult = await loadHomepage(requestedLocale);
 
-let websiteData = null;
-let articles = [];
-let tags = [];
-let supportedLocales: string[] = [];
-
-try {
-  if (requestedLocale) {
-    websiteData = await getLocalizedWebsiteData(requestedLocale);
-  } else {
-    websiteData = await getWebsiteData();
-  }
-
-  if (websiteData) {
-    supportedLocales = websiteData.supportedLocales.length > 0
-      ? websiteData.supportedLocales
-      : [websiteData.defaultLocale];
-  }
-
-  if (!websiteData) {
-    throw new Error('Website data unavailable');
-  }
-
-  if (!requestedLocale) {
-    const defaultLang = getDefaultLanguage(supportedLocales, websiteData.defaultLocale);
-    return Astro.redirect(`/${defaultLang}`);
-  }
-
-  if (!isValidLanguage(requestedLocale, supportedLocales) || websiteData.locale !== requestedLocale) {
-    const fallbackLocale = getDefaultLanguage(supportedLocales, websiteData.defaultLocale);
-    return Astro.redirect(`/${fallbackLocale}`);
-  }
-
-  articles = await getArticles(requestedLocale);
-  tags = await getTags(requestedLocale);
-} catch (error) {
-  console.error('Error loading page data:', error);
-  websiteData = null;
-  supportedLocales = [];
-  articles = [];
-  tags = [];
+if (loadResult.redirect) {
+  return Astro.redirect(loadResult.redirect);
 }
 
-const activeLocale = websiteData?.locale ?? requestedLocale ?? 'en';
+const {
+  websiteData,
+  articles,
+  tags,
+  supportedLocales,
+  activeLocale,
+} = loadResult;
 const themePalette = websiteData?.theme?.palette;
 const brandColor = websiteData?.theme?.brandColor ?? themePalette?.primary ?? '#FF8A00';
 const secondaryColor = themePalette?.secondary ?? '#0EA5B5';
@@ -154,18 +87,6 @@ const navLinks = primaryNav.length > 0
       href: `/${activeLocale}/tag/${tag.slug}`,
       openInNewTab: false,
     }));
-
-function resolveMediaUrl(path?: string | null): string | null {
-  if (!path) return null;
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-  if (!config.cmsUrl) {
-    return path;
-  }
-  const normalizedBase = config.cmsUrl.replace(/\/$/, '');
-  return `${normalizedBase}${path}`;
-}
 
 ---
 
