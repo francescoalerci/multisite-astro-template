@@ -46,4 +46,29 @@ The Vitest suite currently covers locale utilities, the CMS service, the localiz
 - Ensure all tests pass before requesting review
 
 ## CMS & Localization Notes
-Ensure `CMS_URL`, `CMS_API_TOKEN`, and `WEBSITE_API_NAME` are set in your environment before running any commands. When adding locales, update Strapi first, then confirm `getStaticPaths` and language selectors pick up the new locale. Treat production CMS content as source of truth—avoid hardcoding copy in components beyond sensible fallbacks.
+**CMS Configuration:**
+- Ensure `CMS_URL`, `CMS_API_TOKEN`, and `WEBSITE_API_NAME` are set in your environment before running any commands
+- Treat production CMS content as source of truth
+- Avoid hardcoding copy in components beyond sensible fallbacks
+- When adding locales, update Strapi first, then confirm routing picks up new locale
+- Ensure `getStaticPaths` and language selectors support new locales
+
+**Content Management:**
+- All content filtered by `WEBSITE_API_NAME` for multi-site deployment
+- Localized content automatically filtered by language parameter
+- CMS-driven branding ensures consistent visual identity across deployments
+
+## Environment Variables
+**Required:**
+- `CMS_URL`: `https://cms.falerci.com`
+- `CMS_API_TOKEN`: API authentication token
+- `WEBSITE_API_NAME`: site identifier (e.g., `portugal`, `italy`)
+
+**Optional:**
+- `NODE_ENV`: Set to `development` to enable debug panel and HTTP tracking
+
+## API Endpoints
+1. **Website Data**: `GET /api/websites?filters[apiName][$eq]={WEBSITE_API_NAME}&populate=*`
+2. **Articles**: `GET /api/articles?filters[website][apiName][$eq]={WEBSITE_API_NAME}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100&locale={LOCALE}`
+3. **Tags**: `GET /api/tags?filters[website][apiName][$eq]={WEBSITE_API_NAME}&populate=*&sort=updatedAt:desc&pagination[page]=1&pagination[pageSize]=100&locale={LOCALE}`
+4. **Authors**: `GET /api/authors?populate=*&sort=name:asc&pagination[page]=1&pagination[pageSize]=100`
