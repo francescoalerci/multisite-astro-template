@@ -2,16 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import DebugPanel from '../../components/DebugPanel.astro';
 import LanguageSelector from '../../components/LanguageSelector.astro';
-import {
-  getWebsiteData,
-  getArticles,
-  getTags,
-  resolveCmsAssetUrl,
-  type Website,
-  type Article,
-  type Tag,
-  type NavMenuItem,
-} from '../../services/cms';
+import { getWebsiteData, getLocalizedWebsiteData, getArticles, getTags } from '../../services/cms';
 import { isValidLanguage, getDefaultLanguage } from '../../utils/language';
 
 export async function getStaticPaths() {
@@ -19,595 +10,708 @@ export async function getStaticPaths() {
     const websiteData = await getWebsiteData();
 
     if (!websiteData) {
-      console.warn('Website data not available, using default locale paths');
+      // Return default paths if CMS is unavailable
+      console.warn('Website data not available, using default locales');
       return [
         { params: { lang: 'en' } },
+        { params: { lang: 'pt' } },
+        { params: { lang: 'es' } },
         { params: { lang: 'fr' } },
         { params: { lang: 'it' } },
-        { params: { lang: 'es' } },
-        { params: { lang: 'pt' } },
       ];
     }
 
-    const locales = websiteData.supportedLocales?.length
-      ? websiteData.supportedLocales
-      : websiteData.defaultLocale
-        ? [websiteData.defaultLocale]
-        : ['en'];
-
-    return locales.map(locale => ({ params: { lang: locale } }));
+    // Generate paths for each available locale
+    return websiteData.locales.map(locale => ({
+      params: { lang: locale },
+    }));
   } catch (error) {
     console.error('Error in getStaticPaths:', error);
+    // Return default paths as fallback
     return [
       { params: { lang: 'en' } },
+      { params: { lang: 'pt' } },
+      { params: { lang: 'es' } },
       { params: { lang: 'fr' } },
       { params: { lang: 'it' } },
-      { params: { lang: 'es' } },
-      { params: { lang: 'pt' } },
     ];
   }
 }
 
 const { lang } = Astro.params;
-let websiteData: Website | null = null;
-let articles: Article[] = [];
-let tags: Tag[] = [];
-let availableLocales: string[] = [];
+let websiteData, articles, tags;
 
 try {
-  websiteData = await getWebsiteData(lang);
+  websiteData = await getWebsiteData();
 
-  if (!websiteData && lang) {
-    websiteData = await getWebsiteData();
+  // Validate language parameter
+  if (websiteData && lang && !isValidLanguage(lang, websiteData.locales)) {
+    return Astro.redirect(`/${getDefaultLanguage(websiteData.locales, websiteData.defaultLocale)}`);
   }
 
-  if (websiteData) {
-    availableLocales = websiteData.supportedLocales?.length
-      ? websiteData.supportedLocales
-      : websiteData.defaultLocale
-        ? [websiteData.defaultLocale]
-        : ['en'];
-
-    if (lang && !isValidLanguage(lang, availableLocales)) {
-      return Astro.redirect(`/${getDefaultLanguage(availableLocales, websiteData.defaultLocale)}`);
-    }
-
-    const targetLocale = lang || websiteData.locale || websiteData.defaultLocale;
-    articles = await getArticles(targetLocale);
-    tags = await getTags(targetLocale);
-  } else {
-    console.warn('Website data unavailable, site will render with fallback copy.');
+  // If no specific lang provided or invalid, use default
+  if (!lang) {
+    const defaultLang = websiteData?.defaultLocale || 'en';
+    return Astro.redirect(`/${defaultLang}`);
   }
+
+  articles = await getArticles(lang);
+  tags = await getTags(lang);
 } catch (error) {
   console.error('Error loading page data:', error);
+  // Set defaults for offline/error mode
   websiteData = null;
   articles = [];
   tags = [];
-  availableLocales = ['en'];
 }
 
-const palette = {
-  primary: websiteData?.theme?.palette?.primary || websiteData?.theme?.brandColor || '#FF8A00',
-  secondary: websiteData?.theme?.palette?.secondary || '#0EA5B5',
-  accent: websiteData?.theme?.palette?.accent || '#FFD141',
-  background: websiteData?.theme?.palette?.background || '#FFFFFF',
-  surface: websiteData?.theme?.palette?.surface || '#F6F7F9',
-  text: websiteData?.theme?.palette?.neutral || '#111827',
-  muted: websiteData?.theme?.palette?.muted || '#94A3B8',
+// Use brand colors from CMS with sensible defaults
+const brandColors = websiteData?.brandColors?.[0] || {
+  primary: '#FF6B35',
+  secondary: '#F8FAFC',
+  background: '#FFFFFF',
+  text: '#2D3748'
 };
 
-const summaryFallback = websiteData?.seoDefaults?.metaDescription || 'Full story preview coming soon. Check back shortly for new highlights.';
-const readMoreLabel = websiteData?.systemLabels?.readMoreLabel || 'Read more';
-const searchPlaceholder = websiteData?.systemLabels?.searchPlaceholder || 'Search articles…';
-const backToHomeLabel = websiteData?.systemLabels?.backToHomeLabel || 'Back to home';
-const heroImageUrl = resolveCmsAssetUrl(websiteData?.homepageHero?.image);
-const navItems = websiteData?.header?.primaryNav || [];
-const siteTitle = websiteData?.seoDefaults?.metaTitle || websiteData?.name || 'Home';
-
-function formatDate(value?: string): string {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(websiteData?.locale || 'en', { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-function resolveNavHref(item: NavMenuItem): string {
-  if (item.linkType === 'external_url') {
-    return item.url || '#';
-  }
-
-  const localeSegment = lang || websiteData?.defaultLocale || 'en';
-  if (!item.path) {
-    return `/${localeSegment}`;
-  }
-
-  if (item.path.startsWith('http')) {
-    return item.path;
-  }
-
-  const normalizedPath = item.path.startsWith('/') ? item.path : `/${item.path}`;
-  return `/${localeSegment}${normalizedPath === '/' ? '' : normalizedPath}`;
-}
-
-function resolveArticleUrl(article: Article): string {
-  const localeSegment = lang || websiteData?.defaultLocale || 'en';
-  return `/${localeSegment}/articles/${article.slug}`;
-}
-
-const currentPath = Astro.url.pathname;
+const summaryFallback = 'Full story preview coming soon. Check back shortly for the highlights.';
 ---
 
-<Layout title={siteTitle} websiteData={websiteData}>
-  <style define:vars={{
-    primary: palette.primary,
-    secondary: palette.secondary,
-    accent: palette.accent,
-    background: palette.background,
-    surface: palette.surface,
-    text: palette.text,
-    muted: palette.muted,
-  }}>
-    :root {
-      --transition-normal: 0.25s ease;
-    }
+<Layout title="Home" websiteData={websiteData}>
 
-    body {
-      background: var(--background);
-      color: var(--text);
-    }
+	<style define:vars={{
+		primary: brandColors.primary,
+		secondary: brandColors.secondary,
+		background: brandColors.background,
+		text: brandColors.text
+	}}>
+		/* Wanderlust-inspired styles - CMS driven */
+		:root {
+			--orange: #FF6B35;
+			--blue: #4A90E2;
+			--surface: #f9fafb;
+			--border-radius: 8px;
+			--text-secondary: #6b7280;
+		}
 
-    .site-shell {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+		body {
+			margin: 0;
+			padding: 0;
+			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+			background: var(--background);
+			color: var(--text);
+		}
 
-    .site-header {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-    }
+		/* Navigation Header */
+		.navbar {
+			background: white;
+			border-bottom: 1px solid #e5e7eb;
+			padding: 1rem 2rem;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			width: 100%;
+			box-sizing: border-box;
+		}
 
-    .header-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1.5rem;
-      padding: 1.1rem 1.75rem;
-    }
+		.navbar-brand {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			font-size: 1.5rem;
+			font-weight: 700;
+			color: var(--orange);
+			text-decoration: none;
+		}
 
-    .brand-link {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      text-decoration: none;
-      color: inherit;
-    }
+		.navbar-nav {
+			display: flex;
+			gap: 2rem;
+			list-style: none;
+			margin: 0;
+			padding: 0;
+		}
 
-    .brand-copy {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-    }
+		.navbar-nav a {
+			color: #4b5563;
+			text-decoration: none;
+			font-weight: 500;
+			transition: color 0.2s;
+		}
 
-    .brand-name {
-      font-weight: 700;
-      font-size: 1.1rem;
-      margin: 0;
-    }
+		.navbar-nav a:hover {
+			color: var(--orange);
+		}
 
-    .brand-tagline {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin: 0;
-    }
+		.navbar-actions {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+		}
 
-    nav.primary-nav {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      flex: 1;
-    }
+		.btn-subscribe {
+			background: transparent;
+			color: #4b5563;
+			border: none;
+			cursor: pointer;
+			font-weight: 500;
+		}
 
-    nav.primary-nav a {
-      text-decoration: none;
-      color: var(--text);
-      font-weight: 500;
-      font-size: 0.95rem;
-      padding: 0.35rem 0.5rem;
-      border-radius: 6px;
-      transition: background var(--transition-normal), color var(--transition-normal);
-    }
+		.btn-start {
+			background: var(--orange);
+			color: white;
+			padding: 0.5rem 1.5rem;
+			border: none;
+			border-radius: 6px;
+			cursor: pointer;
+			font-weight: 500;
+			transition: transform 0.2s;
+		}
 
-    nav.primary-nav a:hover {
-      background: rgba(15, 23, 42, 0.05);
-      color: var(--primary);
-    }
+		.btn-start:hover {
+			transform: translateY(-1px);
+		}
 
-    .hero {
-      position: relative;
-      background: linear-gradient(120deg, rgba(255, 138, 0, 0.85), rgba(14, 165, 181, 0.7));
-      color: white;
-      padding: 6rem 1.75rem 5rem;
-      text-align: center;
-      overflow: hidden;
-    }
+		/* Hero Section */
+		.hero {
+			background: linear-gradient(135deg, rgba(255, 107, 53, 0.9), rgba(74, 144, 226, 0.8));
+			min-height: 60vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			text-align: center;
+			color: white;
+			position: relative;
+			width: 100%;
+			box-sizing: border-box;
+		}
 
-    .hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image: var(--hero-image, none);
-      background-size: cover;
-      background-position: center;
-      opacity: 0.35;
-      z-index: 0;
-      transform: scale(1.05);
-    }
+		.hero-content {
+			max-width: 600px;
+			padding: 2rem;
+		}
 
-    .hero-content {
-      position: relative;
-      max-width: 760px;
-      margin: 0 auto;
-      z-index: 1;
-      display: grid;
-      gap: 1.25rem;
-    }
+		.hero h1 {
+			font-size: clamp(2.5rem, 5vw, 4rem);
+			font-weight: 700;
+			margin-bottom: 1.5rem;
+			line-height: 1.2;
+		}
 
-    .hero h1 {
-      font-size: clamp(2.75rem, 5vw, 3.8rem);
-      margin: 0;
-      letter-spacing: -0.02em;
-    }
+		.hero p {
+			font-size: 1.25rem;
+			margin-bottom: 2rem;
+			opacity: 0.9;
+			line-height: 1.6;
+		}
 
-    .hero p {
-      margin: 0;
-      font-size: 1.1rem;
-      line-height: 1.7;
-      color: rgba(255, 255, 255, 0.92);
-    }
+		.hero-buttons {
+			display: flex;
+			gap: 1rem;
+			justify-content: center;
+			flex-wrap: wrap;
+		}
 
-    .hero-actions {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
+		.btn-hero {
+			padding: 0.875rem 2rem;
+			border-radius: 8px;
+			font-weight: 600;
+			text-decoration: none;
+			transition: all 0.3s;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.5rem;
+		}
 
-    .hero-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.8rem 1.6rem;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-      text-decoration: none;
-      font-weight: 600;
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      transition: transform var(--transition-normal), box-shadow var(--transition-normal);
-    }
+		.btn-primary {
+			background: var(--orange);
+			color: white;
+		}
 
-    .hero-link:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25);
-    }
+		.btn-secondary {
+			background: rgba(255, 255, 255, 0.2);
+			color: white;
+			border: 2px solid rgba(255, 255, 255, 0.3);
+			backdrop-filter: blur(10px);
+		}
 
-    .content-section {
-      padding: 3.5rem 1.5rem 4rem;
-    }
+		.btn-hero:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+		}
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: grid;
-      gap: 2.5rem;
-    }
+		/* Main Content */
+		.container {
+			max-width: 1200px;
+			margin: 0 auto;
+			padding: 0 2rem;
+		}
 
-    .section-heading {
-      display: grid;
-      gap: 1rem;
-      text-align: center;
-      max-width: 760px;
-      margin: 0 auto;
-    }
+		.section {
+			padding: 4rem 0;
+		}
 
-    .section-heading h2 {
-      margin: 0;
-      font-size: 2.25rem;
-      letter-spacing: -0.015em;
-    }
+		.section-title {
+			font-size: 2.5rem;
+			font-weight: 700;
+			text-align: center;
+			margin-bottom: 1rem;
+			color: #1f2937;
+		}
 
-    .section-heading p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.6;
-      font-size: 1.05rem;
-    }
+		.section-subtitle {
+			font-size: 1.125rem;
+			color: #6b7280;
+			text-align: center;
+			max-width: 600px;
+			margin: 0 auto 3rem;
+			line-height: 1.6;
+		}
 
-    .section-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      justify-content: center;
-      align-items: center;
-    }
+		/* Article Grid */
+		.articles-grid {
+			display: grid;
+			grid-template-columns: 2fr 1fr;
+			gap: 2rem;
+			margin-top: 2rem;
+		}
 
-    .search-input {
-      padding: 0.75rem 1rem;
-      min-width: 240px;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      background: white;
-      color: var(--text);
-      font-size: 0.95rem;
-    }
+		.article-card {
+			background: white;
+			border-radius: 12px;
+			overflow: hidden;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+			transition: transform 0.3s, box-shadow 0.3s;
+			position: relative;
+			display: flex;
+			flex-direction: column;
+			height: auto;
+		}
 
-    .search-input:disabled {
-      opacity: 0.65;
-      cursor: not-allowed;
-    }
+		.article-card:hover {
+			transform: translateY(-8px);
+			box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+		}
 
-    .tag-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
+		.article-image {
+			width: 100%;
+			height: 240px;
+			object-fit: cover;
+			transition: transform 0.3s;
+		}
 
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-      padding: 0.45rem 0.9rem;
-      border-radius: 999px;
-      background: rgba(255, 138, 0, 0.12);
-      color: var(--primary);
-      font-size: 0.82rem;
-      font-weight: 600;
-    }
+		.article-card:hover .article-image {
+			transform: scale(1.05);
+		}
 
-    .articles-grid {
-      display: grid;
-      gap: 2rem;
-    }
+		.article-content {
+			padding: 1.5rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+			flex: 1;
+		}
 
-    .article-card {
-      display: grid;
-      gap: 1.25rem;
-      border-radius: 20px;
-      overflow: hidden;
-      background: var(--surface);
-      box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08);
-      transition: transform var(--transition-normal), box-shadow var(--transition-normal);
-    }
+		.article-meta {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+			margin-bottom: 1rem;
+			font-size: 0.875rem;
+			color: #6b7280;
+			flex-wrap: wrap;
+		}
 
-    .article-card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 22px 40px rgba(15, 23, 42, 0.12);
-    }
+			.article-title {
+				font-size: 1.65rem;
+				font-weight: 600;
+				margin-bottom: 1rem;
+				line-height: 1.4;
+				display: -webkit-box;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 3;
+			overflow: hidden;
+		}
 
-    .article-media {
-      position: relative;
-      padding-top: 52%;
-      overflow: hidden;
-    }
+		.article-title a {
+			color: #1f2937;
+			text-decoration: none;
+			transition: color 0.2s;
+			display: block;
+		}
 
-    .article-media img {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform var(--transition-normal);
-    }
+		.article-title a:hover {
+			color: var(--orange);
+		}
 
-    .article-card:hover .article-media img {
-      transform: scale(1.04);
-    }
+		.article-summary {
+			color: #6b7280;
+			line-height: 1.6;
+			margin-bottom: 1rem;
+			display: -webkit-box;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 3;
+			overflow: hidden;
+			min-height: calc(1.6em * 3);
+		}
 
-    .article-body {
-      padding: 0 1.8rem 1.8rem;
-      display: grid;
-      gap: 0.75rem;
-    }
+		.article-summary.placeholder {
+			opacity: 0.7;
+			font-style: italic;
+		}
 
-    .article-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
+		.read-more {
+			color: var(--orange);
+			font-weight: 500;
+			text-decoration: none;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.5rem;
+			transition: gap 0.2s;
+			margin-top: auto;
+		}
 
-    .article-title {
-      margin: 0;
-      font-size: 1.6rem;
-      letter-spacing: -0.01em;
-    }
+		.read-more:hover {
+			gap: 0.75rem;
+		}
 
-    .article-title a {
-      text-decoration: none;
-      color: inherit;
-    }
+		/* Right column for smaller articles */
+		.articles-right-column {
+			display: flex;
+			flex-direction: column;
+			gap: 2rem;
+		}
 
-    .article-summary {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.6;
-      font-size: 1rem;
-    }
+		/* Large feature card */
+			.article-card.featured {
+				min-height: 500px;
+			}
 
-    .read-more {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-weight: 600;
-      color: var(--primary);
-      text-decoration: none;
-      margin-top: 0.5rem;
-      transition: gap var(--transition-normal);
-    }
+			.article-card.featured .article-image {
+				height: 300px;
+			}
 
-    .read-more:hover {
-      gap: 0.75rem;
-    }
+			.article-card.featured .article-title {
+				font-size: 2rem;
+				line-height: 1.2;
+				margin-bottom: 0.75rem;
+			}
 
-    .empty-state {
-      text-align: center;
-      padding: 3rem 2rem;
-      border-radius: 16px;
-      background: var(--surface);
-      color: var(--muted);
-    }
+		.article-card.featured .article-summary {
+			font-size: 1.05rem;
+			-webkit-line-clamp: 3;
+			min-height: calc(1.6em * 3);
+		}
 
-    @media (max-width: 900px) {
-      nav.primary-nav {
-        display: none;
-      }
+		/* Smaller article cards in right column */
+		.article-card.small {
+			height: auto;
+			min-height: 240px;
+		}
 
-      .header-inner {
-        padding: 1rem;
-      }
-    }
+		.article-card.small .article-image {
+			height: 140px;
+		}
 
-    @media (max-width: 720px) {
-      .hero {
-        padding: 4.5rem 1.5rem 3.5rem;
-      }
+			.article-card.small .article-title {
+				font-size: 1.2rem;
+				margin-bottom: 0.35rem;
+				-webkit-line-clamp: 2;
+			}
 
-      .article-body {
-        padding: 0 1.2rem 1.5rem;
-      }
-    }
-  </style>
+		.article-card.small .article-meta {
+			font-size: 0.75rem;
+			margin-bottom: 0.75rem;
+		}
 
-  {websiteData ? (
-    <div class="site-shell">
-      <header class="site-header">
-        <div class="header-inner">
-          <a class="brand-link" href={`/${lang || websiteData.defaultLocale || 'en'}`}>
-            <div class="brand-copy">
-              <span class="brand-name">{websiteData.header?.brandDisplayName || websiteData.name}</span>
-              {websiteData.header?.tagline && <span class="brand-tagline">{websiteData.header.tagline}</span>}
-            </div>
-          </a>
-          {navItems.length > 0 && (
-            <nav class="primary-nav">
-              {navItems.map(item => (
-                <a
-                  key={item.id}
-                  href={resolveNavHref(item)}
-                  target={item.openInNewTab ? '_blank' : undefined}
-                  rel={item.openInNewTab ? 'noopener noreferrer' : undefined}
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-          )}
-          <LanguageSelector availableLocales={availableLocales} currentLang={lang || websiteData.locale || websiteData.defaultLocale || 'en'} currentPath={currentPath} />
-        </div>
-      </header>
+		.article-card.small .article-summary {
+			-webkit-line-clamp: 2;
+			font-size: 0.95rem;
+			margin-bottom: 0.75rem;
+			line-height: 1.5;
+			min-height: calc(1.5em * 2);
+		}
 
-      <section class="hero" style={heroImageUrl ? `--hero-image: url('${heroImageUrl}')` : undefined}>
-        <div class="hero-content">
-          <h1>{websiteData.name}</h1>
-          {websiteData.header?.tagline && <p>{websiteData.header.tagline}</p>}
-          {!websiteData.header?.tagline && websiteData.seoDefaults?.metaDescription && <p>{websiteData.seoDefaults.metaDescription}</p>}
-          <div class="hero-actions">
-            <a class="hero-link" href={`/${lang || websiteData.defaultLocale || 'en'}`}>
-              {backToHomeLabel}
-              <span aria-hidden="true">→</span>
-            </a>
-            {navItems[0] && navItems[0].linkType !== 'external_url' && navItems[0].path && (
-              <a class="hero-link" href={resolveNavHref(navItems[0])}>
-                {navItems[0].label}
-                <span aria-hidden="true">→</span>
-              </a>
-            )}
-          </div>
-        </div>
-      </section>
+		.article-card.small .article-content {
+			padding: 1rem;
+		}
 
-      <section class="content-section">
-        <div class="container">
-          <div class="section-heading">
-            <h2>{websiteData.header?.brandDisplayName || websiteData.name}</h2>
-            {websiteData.seoDefaults?.metaDescription && <p>{websiteData.seoDefaults.metaDescription}</p>}
-          </div>
+		/* Row of 3 articles */
+		.articles-row-three {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 2rem;
+			margin-top: 3rem;
+		}
 
-          <div class="section-toolbar">
-            <input class="search-input" type="search" placeholder={searchPlaceholder} disabled />
-            {tags.length > 0 && (
-              <div class="tag-list">
-                {tags.map(tag => (
-                  <span class="tag" key={tag.id}>#{tag.name}</span>
-                ))}
-              </div>
-            )}
-          </div>
+			.article-card.medium {
+				height: auto;
+				min-height: 350px;
+			}
 
-          {articles.length > 0 ? (
-            <div class="articles-grid">
-              {articles.map(article => {
-                const coverUrl = resolveCmsAssetUrl(article.coverImage) || heroImageUrl || '/images/placeholder.jpg';
+			.article-card.medium .article-image {
+				height: 200px;
+			}
 
-                return (
-                  <article class="article-card" key={article.id}>
-                    <div class="article-media">
-                      <img src={coverUrl} alt={article.coverImage?.alternativeText || article.title} loading="lazy" />
-                    </div>
-                    <div class="article-body">
-                      <div class="article-meta">
-                        {article.updatedAt && <span>{formatDate(article.updatedAt)}</span>}
-                        {article.readingTime && <span>{article.readingTime} min</span>}
-                        {article.tags?.[0] && <span>#{article.tags[0].name}</span>}
-                      </div>
-                      <h3 class="article-title">
-                        <a href={resolveArticleUrl(article)}>{article.title}</a>
-                      </h3>
-                      <p class="article-summary">{article.summary || summaryFallback}</p>
-                      <a class="read-more" href={resolveArticleUrl(article)}>
-                        {readMoreLabel}
-                        <span aria-hidden="true">→</span>
-                      </a>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div class="empty-state">
-              <h3>{websiteData.systemLabels?.readMoreLabel || 'Content coming soon'}</h3>
-              <p>{summaryFallback}</p>
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
-  ) : (
-    <div class="content-section">
-      <div class="container" style="max-width: 720px; text-align: center;">
-        <h1>CMS configuration required</h1>
-        <p>We could not load website settings from Strapi. Verify your environment variables and API permissions.</p>
-      </div>
-    </div>
-  )}
+			.article-card.medium .article-title {
+				font-size: 1.4rem;
+				-webkit-line-clamp: 2;
+			}
 
-  <DebugPanel
-    websiteData={websiteData}
-    articles={articles}
-    additionalInfo={{
-      'Current Language': lang,
-      'Tags': tags.length,
-      'Available Locales': availableLocales.join(', '),
-      'Hero Image': heroImageUrl ? 'Configured' : 'Not set',
-      'Theme Primary': palette.primary,
-    }}
-  />
+		.article-card.medium .article-summary {
+			font-size: 1rem;
+			-webkit-line-clamp: 3;
+			min-height: calc(1.6em * 3);
+		}
+
+			/* Responsive */
+		@media (max-width: 768px) {
+			.navbar {
+				padding: 1rem;
+			}
+
+			.navbar-nav {
+				display: none;
+			}
+
+			.hero {
+				min-height: 50vh;
+			}
+
+			.hero-buttons {
+				flex-direction: column;
+				align-items: center;
+			}
+
+			.btn-hero {
+				width: 100%;
+				max-width: 280px;
+				justify-content: center;
+			}
+
+			.articles-grid {
+				grid-template-columns: 1fr;
+			}
+
+			.articles-row-three {
+				grid-template-columns: 1fr;
+			}
+
+			.article-card.featured {
+				height: auto;
+			}
+
+			.article-card.medium {
+				height: auto;
+			}
+
+			.container {
+				padding: 0 1rem;
+			}
+		}
+	</style>
+
+	{websiteData ? (
+		<>
+			<!-- Navigation Header -->
+			<nav class="navbar">
+				<a href="/" class="navbar-brand">
+					{websiteData.logo && (
+						<img
+							src={websiteData.logo.url.startsWith('http') ? websiteData.logo.url : `http://localhost:1337${websiteData.logo.url}`}
+							alt={websiteData.logo.alternativeText || 'Logo'}
+							style="height: 24px;"
+						/>
+					)}
+					{websiteData.name}
+				</a>
+
+				<ul class="navbar-nav">
+					<li><a href="/">All Stories</a></li>
+					{tags.slice(0, 5).map(tag => (
+						<li><a href={`/tag/${tag.slug}`}>{tag.name}</a></li>
+					))}
+				</ul>
+
+				<div class="navbar-actions">
+					{websiteData?.locales && (
+						<LanguageSelector
+							availableLocales={websiteData.locales}
+							currentLang={lang}
+							currentPath={Astro.url.pathname}
+						/>
+					)}
+				</div>
+			</nav>
+
+			<!-- Hero Section -->
+			<section class="hero">
+				<div class="hero-content">
+					<h1>Discover Your Next<br>Adventure</h1>
+					<p>Expert travel guides, hidden gems, and insider tips to make your journey unforgettable. From European cobblestone streets to tropical paradises.</p>
+					<div class="hero-buttons">
+						<a href="#articles" class="btn-hero btn-primary">
+							Explore Destinations
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="m9 18 6-6-6-6"/>
+							</svg>
+						</a>
+					</div>
+				</div>
+			</section>
+
+			<!-- Main Content -->
+			<div class="container">
+
+
+				<!-- Articles Section -->
+				<section class="section" id="articles">
+					<h2 class="section-title">Latest Travel Stories</h2>
+					<p class="section-subtitle">Inspiring destinations, expert tips, and unforgettable experiences from around the world</p>
+
+					{articles.length > 0 ? (
+						<div class="articles-grid">
+						<!-- Featured article on the left -->
+							{articles[0] && (
+								<article class="article-card featured">
+									<img
+										src={articles[0].coverImage ?
+											(articles[0].coverImage.url.startsWith('http') ? articles[0].coverImage.url : `http://localhost:1337${articles[0].coverImage.url}`) :
+											'/images/placeholder.jpg'
+										}
+										alt={articles[0].coverImage?.alternativeText || articles[0].title}
+										class="article-image"
+									/>
+									<div class="article-content">
+										<div class="article-meta">
+											<span>📅 {new Date(articles[0].updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+											{articles[0].readingTime && <span>⏱ {articles[0].readingTime} min read</span>}
+											{articles[0].tags?.[0] && <span>🏷️ {articles[0].tags[0].name}</span>}
+										</div>
+										<h3 class="article-title">
+											<a href={`/articles/${articles[0].slug}`}>{articles[0].title}</a>
+										</h3>
+										<p class={`article-summary${articles[0].summary ? '' : ' placeholder'}`}>
+											{articles[0].summary || summaryFallback}
+										</p>
+										<a href={`/articles/${articles[0].slug}`} class="read-more">
+											Read More
+											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+												<path d="m9 18 6-6-6-6"/>
+											</svg>
+										</a>
+									</div>
+								</article>
+							)}
+
+						<!-- Right column with two smaller articles -->
+							<div class="articles-right-column">
+								{articles.slice(1, 3).map((article) => (
+									<article class="article-card small">
+										<img
+											src={article.coverImage ?
+												(article.coverImage.url.startsWith('http') ? article.coverImage.url : `http://localhost:1337${article.coverImage.url}`) :
+												'/images/placeholder.jpg'
+											}
+											alt={article.coverImage?.alternativeText || article.title}
+											class="article-image"
+										/>
+										<div class="article-content">
+											<div class="article-meta">
+												<span>📅 {new Date(article.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+												{article.readingTime && <span>⏱ {article.readingTime} min read</span>}
+												{article.tags?.[0] && <span>🏷️ {article.tags[0].name}</span>}
+											</div>
+											<h3 class="article-title">
+												<a href={`/articles/${article.slug}`}>{article.title}</a>
+											</h3>
+											<p class={`article-summary${article.summary ? '' : ' placeholder'}`}>
+												{article.summary || summaryFallback}
+											</p>
+											<a href={`/articles/${article.slug}`} class="read-more">
+												Read More
+												<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+													<path d="m9 18 6-6-6-6"/>
+												</svg>
+											</a>
+										</div>
+									</article>
+								))}
+							</div>
+						</div>
+
+						<!-- Row of 3 articles -->
+						{articles.length > 3 && (
+							<div class="articles-row-three">
+								{articles.slice(3, 6).map((article) => (
+									<article class="article-card medium">
+										<img
+											src={article.coverImage ?
+												(article.coverImage.url.startsWith('http') ? article.coverImage.url : `http://localhost:1337${article.coverImage.url}`) :
+												'/images/placeholder.jpg'
+											}
+											alt={article.coverImage?.alternativeText || article.title}
+											class="article-image"
+										/>
+										<div class="article-content">
+											<div class="article-meta">
+												<span>📅 {new Date(article.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+												{article.readingTime && <span>⏱ {article.readingTime} min read</span>}
+												{article.tags?.[0] && <span>🏷️ {article.tags[0].name}</span>}
+											</div>
+											<h3 class="article-title">
+												<a href={`/articles/${article.slug}`}>{article.title}</a>
+											</h3>
+											<p class={`article-summary${article.summary ? '' : ' placeholder'}`}>
+												{article.summary || summaryFallback}
+											</p>
+											<a href={`/articles/${article.slug}`} class="read-more">
+												Read More
+												<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+													<path d="m9 18 6-6-6-6"/>
+												</svg>
+											</a>
+										</div>
+									</article>
+								))}
+							</div>
+						)}
+					) : (
+						<div style="text-align: center; padding: 3rem; color: #6b7280;">
+							<h3>No stories yet</h3>
+							<p>Check back soon for amazing travel stories and guides!</p>
+						</div>
+					)}
+				</section>
+			</div>
+		</>
+	) : (
+		<!-- Fallback for no website data -->
+		<div class="container" style="text-align: center; padding: 5rem 2rem;">
+			<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.5" style="margin-bottom: 2rem;">
+				<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+				<line x1="12" y1="9" x2="12" y2="13"/>
+				<line x1="12" y1="17" x2="12.01" y2="17"/>
+			</svg>
+			<h1 style="color: var(--text); margin-bottom: 1rem;">Welcome to Astro</h1>
+			<div style="background: var(--surface); padding: 2rem; border-radius: var(--border-radius); border-left: 4px solid var(--orange); max-width: 600px; margin: 0 auto;">
+				<h3 style="color: var(--orange); margin-bottom: 0.5rem;">Configuration Required</h3>
+				<p style="color: var(--text-secondary); line-height: 1.6;">
+					Unable to load website data from CMS. Please check your environment variables and ensure your CMS is properly configured.
+				</p>
+			</div>
+		</div>
+	)}
+
+	<DebugPanel
+		websiteData={websiteData}
+		articles={articles}
+		additionalInfo={{
+			"Current Language": lang,
+			"Tags": tags.length,
+			"Tag Names": tags.map(t => t.name).join(", "),
+			"Logo": websiteData?.logo ? "Available" : "Not set",
+			"Favicon": websiteData?.favicon ? "Available" : "Not set",
+			"Brand Colors": websiteData?.brandColors?.length || 0
+		}}
+	/>
 </Layout>
