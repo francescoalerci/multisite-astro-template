@@ -77,18 +77,22 @@ function getLanguageSwitchUrl(newLang: string, path: string): string {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    background: white;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
+    background: var(--background, white);
+    border: 1px solid var(--border, #d1d5db);
+    border-radius: var(--border-radius, 6px);
     cursor: pointer;
     font-size: 0.875rem;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all var(--transition-normal, 0.3s ease);
+    box-shadow: 0 1px 2px var(--shadow, rgba(0, 0, 0, 0.05));
+    color: var(--text, #374151);
+    backdrop-filter: blur(10px);
   }
 
   .language-trigger:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
+    background: var(--surface, #f9fafb);
+    border-color: var(--primary, #FF6B35);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--shadow-hover, rgba(0, 0, 0, 0.15));
   }
 
   .current-language {
@@ -100,7 +104,7 @@ function getLanguageSwitchUrl(newLang: string, path: string): string {
 
   .language-code {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
   }
 
   .language-trigger svg {
@@ -118,17 +122,18 @@ function getLanguageSwitchUrl(newLang: string, path: string): string {
     left: 0;
     right: 0;
     min-width: 160px;
-    background: white;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    background: var(--background, white);
+    border: 1px solid var(--border, #d1d5db);
+    border-radius: var(--border-radius, 6px);
+    box-shadow: 0 10px 15px -3px var(--shadow-hover, rgba(0, 0, 0, 0.15)), 0 4px 6px -2px var(--shadow, rgba(0, 0, 0, 0.05));
     z-index: 1000;
     margin-top: 0.25rem;
     overflow: hidden;
     opacity: 0;
     transform: translateY(-8px);
     pointer-events: none;
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal, 0.3s ease);
+    backdrop-filter: blur(20px);
   }
 
   .language-dropdown.open .language-options {

@@ -2,109 +2,612 @@
 import Layout from '../../layouts/Layout.astro';
 import DebugPanel from '../../components/DebugPanel.astro';
 import LanguageSelector from '../../components/LanguageSelector.astro';
-import { getWebsiteData, getArticles, getCategories } from '../../services/cms';
+import {
+  getWebsiteData,
+  getArticles,
+  getTags,
+  resolveCmsAssetUrl,
+  type Website,
+  type Article,
+  type Tag,
+  type NavMenuItem,
+} from '../../services/cms';
 import { isValidLanguage, getDefaultLanguage } from '../../utils/language';
 
 export async function getStaticPaths() {
-  const websiteData = await getWebsiteData();
+  try {
+    const websiteData = await getWebsiteData();
 
-  if (!websiteData) {
-    return [];
+    if (!websiteData) {
+      console.warn('Website data not available, using default locale paths');
+      return [
+        { params: { lang: 'en' } },
+        { params: { lang: 'fr' } },
+        { params: { lang: 'it' } },
+        { params: { lang: 'es' } },
+        { params: { lang: 'pt' } },
+      ];
+    }
+
+    const locales = websiteData.supportedLocales?.length
+      ? websiteData.supportedLocales
+      : websiteData.defaultLocale
+        ? [websiteData.defaultLocale]
+        : ['en'];
+
+    return locales.map(locale => ({ params: { lang: locale } }));
+  } catch (error) {
+    console.error('Error in getStaticPaths:', error);
+    return [
+      { params: { lang: 'en' } },
+      { params: { lang: 'fr' } },
+      { params: { lang: 'it' } },
+      { params: { lang: 'es' } },
+      { params: { lang: 'pt' } },
+    ];
   }
-
-  // Generate paths for each available locale
-  return websiteData.locales.map(locale => ({
-    params: { lang: locale },
-  }));
 }
 
 const { lang } = Astro.params;
-const websiteData = await getWebsiteData();
+let websiteData: Website | null = null;
+let articles: Article[] = [];
+let tags: Tag[] = [];
+let availableLocales: string[] = [];
 
-// Validate language parameter
-if (!websiteData || !lang || !isValidLanguage(lang, websiteData.locales)) {
-  return Astro.redirect(`/${getDefaultLanguage(websiteData?.locales || ['en'], websiteData?.defaultLocale || 'en')}`);
+try {
+  websiteData = await getWebsiteData(lang);
+
+  if (!websiteData && lang) {
+    websiteData = await getWebsiteData();
+  }
+
+  if (websiteData) {
+    availableLocales = websiteData.supportedLocales?.length
+      ? websiteData.supportedLocales
+      : websiteData.defaultLocale
+        ? [websiteData.defaultLocale]
+        : ['en'];
+
+    if (lang && !isValidLanguage(lang, availableLocales)) {
+      return Astro.redirect(`/${getDefaultLanguage(availableLocales, websiteData.defaultLocale)}`);
+    }
+
+    const targetLocale = lang || websiteData.locale || websiteData.defaultLocale;
+    articles = await getArticles(targetLocale);
+    tags = await getTags(targetLocale);
+  } else {
+    console.warn('Website data unavailable, site will render with fallback copy.');
+  }
+} catch (error) {
+  console.error('Error loading page data:', error);
+  websiteData = null;
+  articles = [];
+  tags = [];
+  availableLocales = ['en'];
 }
 
-const articles = await getArticles(lang);
-const categories = await getCategories(lang);
+const palette = {
+  primary: websiteData?.theme?.palette?.primary || websiteData?.theme?.brandColor || '#FF8A00',
+  secondary: websiteData?.theme?.palette?.secondary || '#0EA5B5',
+  accent: websiteData?.theme?.palette?.accent || '#FFD141',
+  background: websiteData?.theme?.palette?.background || '#FFFFFF',
+  surface: websiteData?.theme?.palette?.surface || '#F6F7F9',
+  text: websiteData?.theme?.palette?.neutral || '#111827',
+  muted: websiteData?.theme?.palette?.muted || '#94A3B8',
+};
+
+const summaryFallback = websiteData?.seoDefaults?.metaDescription || 'Full story preview coming soon. Check back shortly for new highlights.';
+const readMoreLabel = websiteData?.systemLabels?.readMoreLabel || 'Read more';
+const searchPlaceholder = websiteData?.systemLabels?.searchPlaceholder || 'Search articles…';
+const backToHomeLabel = websiteData?.systemLabels?.backToHomeLabel || 'Back to home';
+const heroImageUrl = resolveCmsAssetUrl(websiteData?.homepageHero?.image);
+const navItems = websiteData?.header?.primaryNav || [];
+const siteTitle = websiteData?.seoDefaults?.metaTitle || websiteData?.name || 'Home';
+
+function formatDate(value?: string): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(websiteData?.locale || 'en', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function resolveNavHref(item: NavMenuItem): string {
+  if (item.linkType === 'external_url') {
+    return item.url || '#';
+  }
+
+  const localeSegment = lang || websiteData?.defaultLocale || 'en';
+  if (!item.path) {
+    return `/${localeSegment}`;
+  }
+
+  if (item.path.startsWith('http')) {
+    return item.path;
+  }
+
+  const normalizedPath = item.path.startsWith('/') ? item.path : `/${item.path}`;
+  return `/${localeSegment}${normalizedPath === '/' ? '' : normalizedPath}`;
+}
+
+function resolveArticleUrl(article: Article): string {
+  const localeSegment = lang || websiteData?.defaultLocale || 'en';
+  return `/${localeSegment}/articles/${article.slug}`;
+}
+
+const currentPath = Astro.url.pathname;
 ---
 
-<Layout title="Home" websiteData={websiteData}>
-	{websiteData ? (
-		<>
-			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-				<div style="display: flex; align-items: center; gap: 1rem;">
-					{websiteData.logo && (
-						<img
-							src={websiteData.logo.url.startsWith('http') ? websiteData.logo.url : `https://cms.falerci.com${websiteData.logo.url}`}
-							alt={websiteData.logo.alternativeText || 'Website Logo'}
-							style="height: 60px; width: auto;"
-						/>
-					)}
-					<h1>Welcome to {websiteData.name}</h1>
-				</div>
-				<LanguageSelector
-					availableLocales={websiteData.locales}
-					currentLang={lang}
-					currentPath={Astro.url.pathname}
-				/>
-			</div>
+<Layout title={siteTitle} websiteData={websiteData}>
+  <style define:vars={{
+    primary: palette.primary,
+    secondary: palette.secondary,
+    accent: palette.accent,
+    background: palette.background,
+    surface: palette.surface,
+    text: palette.text,
+    muted: palette.muted,
+  }}>
+    :root {
+      --transition-normal: 0.25s ease;
+    }
 
-			<p>Site: <strong>{websiteData.apiName}</strong></p>
-			<p>Default Locale: <strong>{websiteData.defaultLocale}</strong></p>
-			<p>Available Locales: <strong>{websiteData.locales.join(', ')}</strong></p>
-			<p>Base URL: <strong>{websiteData.baseUrl}</strong></p>
-			<div style={`background-color: ${websiteData.brandColor}; color: white; padding: 1rem; border-radius: 4px; margin: 1rem 0;`}>
-				<strong>Brand Color: {websiteData.brandColor}</strong>
-			</div>
+    body {
+      background: var(--background);
+      color: var(--text);
+    }
 
-			<h2>Categories</h2>
-			{categories.length > 0 ? (
-				<div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 2rem 0;">
-					{categories.map((category) => (
-						<div style={`display: inline-block; background-color: ${websiteData.brandColor}; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; text-decoration: none;`}>
-							{category.name}
-						</div>
-					))}
-				</div>
-			) : (
-				<p style="color: #6b7280; font-style: italic;">No categories found for this website.</p>
-			)}
+    .site-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-			<h2>Latest Articles</h2>
-			{articles.length > 0 ? (
-				<div style="display: grid; gap: 1.5rem; margin: 2rem 0;">
-					{articles.map((article) => (
-						<article style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; background: #f9fafb;">
-							<h3 style="margin: 0 0 0.5rem; color: #111827;">
-								<a href={`/articles/${article.slug}`} style={`color: ${websiteData.brandColor}; text-decoration: none;`}>
-									{article.title}
-								</a>
-							</h3>
-							{article.excerpt && (
-								<p style="color: #6b7280; margin: 0.5rem 0 1rem; line-height: 1.5;">
-									{article.excerpt}
-								</p>
-							)}
-							<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; color: #9ca3af;">
-								<span>Updated: {new Date(article.updatedAt).toLocaleDateString()}</span>
-							</div>
-						</article>
-					))}
-				</div>
-			) : (
-				<p style="color: #6b7280; font-style: italic;">No articles found for this website.</p>
-			)}
-		</>
-	) : (
-		<>
-			<h1>Welcome to Astro</h1>
-			<p style="color: #d97706; background: #fef3c7; padding: 1rem; border-radius: 4px;">
-				Unable to load website data from CMS. Please check your environment variables.
-			</p>
-		</>
-	)}
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
 
-	<DebugPanel websiteData={websiteData} articles={articles} additionalInfo={{ "Current Language": lang, "Categories": categories.length, "Category Names": categories.map(c => c.name).join(", "), "Logo": websiteData?.logo ? "Available" : "Not set", "Favicon": websiteData?.favicon ? "Available" : "Not set" }} />
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      padding: 1.1rem 1.75rem;
+    }
+
+    .brand-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .brand-name {
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+    .brand-tagline {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    nav.primary-nav {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex: 1;
+    }
+
+    nav.primary-nav a {
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 500;
+      font-size: 0.95rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      transition: background var(--transition-normal), color var(--transition-normal);
+    }
+
+    nav.primary-nav a:hover {
+      background: rgba(15, 23, 42, 0.05);
+      color: var(--primary);
+    }
+
+    .hero {
+      position: relative;
+      background: linear-gradient(120deg, rgba(255, 138, 0, 0.85), rgba(14, 165, 181, 0.7));
+      color: white;
+      padding: 6rem 1.75rem 5rem;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: var(--hero-image, none);
+      background-size: cover;
+      background-position: center;
+      opacity: 0.35;
+      z-index: 0;
+      transform: scale(1.05);
+    }
+
+    .hero-content {
+      position: relative;
+      max-width: 760px;
+      margin: 0 auto;
+      z-index: 1;
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.75rem, 5vw, 3.8rem);
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+
+    .hero p {
+      margin: 0;
+      font-size: 1.1rem;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .hero-actions {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .hero-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.8rem 1.6rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+    }
+
+    .hero-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25);
+    }
+
+    .content-section {
+      padding: 3.5rem 1.5rem 4rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      gap: 2.5rem;
+    }
+
+    .section-heading {
+      display: grid;
+      gap: 1rem;
+      text-align: center;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .section-heading h2 {
+      margin: 0;
+      font-size: 2.25rem;
+      letter-spacing: -0.015em;
+    }
+
+    .section-heading p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 1.05rem;
+    }
+
+    .section-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .search-input {
+      padding: 0.75rem 1rem;
+      min-width: 240px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: white;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .search-input:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      background: rgba(255, 138, 0, 0.12);
+      color: var(--primary);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .articles-grid {
+      display: grid;
+      gap: 2rem;
+    }
+
+    .article-card {
+      display: grid;
+      gap: 1.25rem;
+      border-radius: 20px;
+      overflow: hidden;
+      background: var(--surface);
+      box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08);
+      transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+    }
+
+    .article-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 22px 40px rgba(15, 23, 42, 0.12);
+    }
+
+    .article-media {
+      position: relative;
+      padding-top: 52%;
+      overflow: hidden;
+    }
+
+    .article-media img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform var(--transition-normal);
+    }
+
+    .article-card:hover .article-media img {
+      transform: scale(1.04);
+    }
+
+    .article-body {
+      padding: 0 1.8rem 1.8rem;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .article-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .article-title {
+      margin: 0;
+      font-size: 1.6rem;
+      letter-spacing: -0.01em;
+    }
+
+    .article-title a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .article-summary {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 1rem;
+    }
+
+    .read-more {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      color: var(--primary);
+      text-decoration: none;
+      margin-top: 0.5rem;
+      transition: gap var(--transition-normal);
+    }
+
+    .read-more:hover {
+      gap: 0.75rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 2rem;
+      border-radius: 16px;
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    @media (max-width: 900px) {
+      nav.primary-nav {
+        display: none;
+      }
+
+      .header-inner {
+        padding: 1rem;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .hero {
+        padding: 4.5rem 1.5rem 3.5rem;
+      }
+
+      .article-body {
+        padding: 0 1.2rem 1.5rem;
+      }
+    }
+  </style>
+
+  {websiteData ? (
+    <div class="site-shell">
+      <header class="site-header">
+        <div class="header-inner">
+          <a class="brand-link" href={`/${lang || websiteData.defaultLocale || 'en'}`}>
+            <div class="brand-copy">
+              <span class="brand-name">{websiteData.header?.brandDisplayName || websiteData.name}</span>
+              {websiteData.header?.tagline && <span class="brand-tagline">{websiteData.header.tagline}</span>}
+            </div>
+          </a>
+          {navItems.length > 0 && (
+            <nav class="primary-nav">
+              {navItems.map(item => (
+                <a
+                  key={item.id}
+                  href={resolveNavHref(item)}
+                  target={item.openInNewTab ? '_blank' : undefined}
+                  rel={item.openInNewTab ? 'noopener noreferrer' : undefined}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          )}
+          <LanguageSelector availableLocales={availableLocales} currentLang={lang || websiteData.locale || websiteData.defaultLocale || 'en'} currentPath={currentPath} />
+        </div>
+      </header>
+
+      <section class="hero" style={heroImageUrl ? `--hero-image: url('${heroImageUrl}')` : undefined}>
+        <div class="hero-content">
+          <h1>{websiteData.name}</h1>
+          {websiteData.header?.tagline && <p>{websiteData.header.tagline}</p>}
+          {!websiteData.header?.tagline && websiteData.seoDefaults?.metaDescription && <p>{websiteData.seoDefaults.metaDescription}</p>}
+          <div class="hero-actions">
+            <a class="hero-link" href={`/${lang || websiteData.defaultLocale || 'en'}`}>
+              {backToHomeLabel}
+              <span aria-hidden="true">→</span>
+            </a>
+            {navItems[0] && navItems[0].linkType !== 'external_url' && navItems[0].path && (
+              <a class="hero-link" href={resolveNavHref(navItems[0])}>
+                {navItems[0].label}
+                <span aria-hidden="true">→</span>
+              </a>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section class="content-section">
+        <div class="container">
+          <div class="section-heading">
+            <h2>{websiteData.header?.brandDisplayName || websiteData.name}</h2>
+            {websiteData.seoDefaults?.metaDescription && <p>{websiteData.seoDefaults.metaDescription}</p>}
+          </div>
+
+          <div class="section-toolbar">
+            <input class="search-input" type="search" placeholder={searchPlaceholder} disabled />
+            {tags.length > 0 && (
+              <div class="tag-list">
+                {tags.map(tag => (
+                  <span class="tag" key={tag.id}>#{tag.name}</span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {articles.length > 0 ? (
+            <div class="articles-grid">
+              {articles.map(article => {
+                const coverUrl = resolveCmsAssetUrl(article.coverImage) || heroImageUrl || '/images/placeholder.jpg';
+
+                return (
+                  <article class="article-card" key={article.id}>
+                    <div class="article-media">
+                      <img src={coverUrl} alt={article.coverImage?.alternativeText || article.title} loading="lazy" />
+                    </div>
+                    <div class="article-body">
+                      <div class="article-meta">
+                        {article.updatedAt && <span>{formatDate(article.updatedAt)}</span>}
+                        {article.readingTime && <span>{article.readingTime} min</span>}
+                        {article.tags?.[0] && <span>#{article.tags[0].name}</span>}
+                      </div>
+                      <h3 class="article-title">
+                        <a href={resolveArticleUrl(article)}>{article.title}</a>
+                      </h3>
+                      <p class="article-summary">{article.summary || summaryFallback}</p>
+                      <a class="read-more" href={resolveArticleUrl(article)}>
+                        {readMoreLabel}
+                        <span aria-hidden="true">→</span>
+                      </a>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div class="empty-state">
+              <h3>{websiteData.systemLabels?.readMoreLabel || 'Content coming soon'}</h3>
+              <p>{summaryFallback}</p>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  ) : (
+    <div class="content-section">
+      <div class="container" style="max-width: 720px; text-align: center;">
+        <h1>CMS configuration required</h1>
+        <p>We could not load website settings from Strapi. Verify your environment variables and API permissions.</p>
+      </div>
+    </div>
+  )}
+
+  <DebugPanel
+    websiteData={websiteData}
+    articles={articles}
+    additionalInfo={{
+      'Current Language': lang,
+      'Tags': tags.length,
+      'Available Locales': availableLocales.join(', '),
+      'Hero Image': heroImageUrl ? 'Configured' : 'Not set',
+      'Theme Primary': palette.primary,
+    }}
+  />
 </Layout>

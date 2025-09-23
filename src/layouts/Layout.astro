@@ -1,47 +1,247 @@
 ---
+import { config } from '../config';
+import type { Website } from '../services/cms';
+import { resolveCmsAssetUrl } from '../services/cms';
+
 interface Props {
   title?: string;
-  websiteData?: {
-    name?: string;
-    favicon?: {
-      url: string;
-      alternativeText: string;
-    };
-  };
+  websiteData?: Website | null;
 }
 
-const { title, websiteData } = Astro.props;
-const siteName = websiteData?.name || 'Astro Site';
-const pageTitle = title ? `${title} | ${siteName}` : siteName;
-const faviconUrl = websiteData?.favicon?.url ? (websiteData.favicon.url.startsWith('http') ? websiteData.favicon.url : `https://cms.falerci.com${websiteData.favicon.url}`) : '/favicon.svg';
+const { title, websiteData } = Astro.props as Props;
+const siteName = websiteData?.header?.brandDisplayName || websiteData?.name || 'Multisite CMS';
+const seoTitle = websiteData?.seoDefaults?.metaTitle || siteName;
+const pageTitle = title ? `${title} | ${siteName}` : seoTitle;
+const metaDescription = websiteData?.seoDefaults?.metaDescription || `Content managed by Strapi for ${siteName}.`;
+const htmlLang = websiteData?.locale || websiteData?.defaultLocale || 'en';
+
+const palette = {
+  primary: websiteData?.theme?.palette?.primary || websiteData?.theme?.brandColor || '#FF8A00',
+  secondary: websiteData?.theme?.palette?.secondary || '#0EA5B5',
+  accent: websiteData?.theme?.palette?.accent || '#FFD141',
+  background: websiteData?.theme?.palette?.background || '#FFFFFF',
+  surface: websiteData?.theme?.palette?.surface || '#F6F7F9',
+  muted: websiteData?.theme?.palette?.muted || '#94A3B8',
+  neutral: websiteData?.theme?.palette?.neutral || '#111827',
+};
+
+function createVarStyle(map: Record<string, string | undefined>, context: string): string {
+  const segments: string[] = [];
+  const missing: string[] = [];
+
+  for (const [key, value] of Object.entries(map)) {
+    if (!value) {
+      missing.push(key);
+      continue;
+    }
+
+    segments.push(`--${key}: ${value};`);
+  }
+
+  if (missing.length > 0) {
+    console.warn(`Missing theme values for ${missing.join(', ')} in ${context}. Update the CMS theme palette to keep the layout in sync.`);
+  }
+
+  return segments.join(' ');
+}
+
+const brandStyles = createVarStyle(
+  {
+    'brand-primary': palette.primary,
+    'brand-secondary': palette.secondary,
+    'brand-accent': palette.accent,
+    'brand-background': palette.background,
+    'brand-surface': palette.surface,
+    'brand-muted': palette.muted,
+    'brand-neutral': palette.neutral,
+  },
+  'theme.palette',
+);
+
+const logoUrl = resolveCmsAssetUrl(websiteData?.brand?.logo);
+const faviconUrl = resolveCmsAssetUrl(websiteData?.brand?.favicon) || '/favicon.svg';
+const footer = websiteData?.footer;
+const currentYear = new Date().getFullYear();
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={htmlLang}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="description" content="Astro description" />
+    <meta name="description" content={metaDescription} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href={faviconUrl} />
     <meta name="generator" content={Astro.generator} />
     <title>{pageTitle}</title>
     <style>
+      :root {
+        color-scheme: light;
+      }
+
       body {
-        font-family: system-ui, sans-serif;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--brand-background);
+        color: var(--brand-neutral);
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .page-main {
+        flex: 1 0 auto;
+      }
+
+      .site-footer {
+        background: var(--brand-primary);
+        color: var(--brand-neutral);
+        padding: 3rem 1.5rem;
+      }
+
+      .footer-inner {
+        max-width: 960px;
+        margin: 0 auto;
+        display: grid;
+        gap: 2rem;
+      }
+
+      .footer-brand {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .footer-logo {
+        height: 36px;
+        width: auto;
+        flex-shrink: 0;
+      }
+
+      .footer-brand-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+
+      .footer-brand-copy strong {
+        font-size: 1.15rem;
+        line-height: 1.1;
+      }
+
+      .footer-brand-copy p {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--brand-neutral);
+        opacity: 0.85;
+        max-width: 640px;
+      }
+
+      .footer-links {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1.5rem;
+      }
+
+      .footer-link-group h4 {
+        margin: 0 0 0.75rem;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .footer-link-group ul {
+        list-style: none;
         margin: 0;
         padding: 0;
-        color: #333;
+        display: grid;
+        gap: 0.4rem;
       }
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 2rem 1rem;
+
+      .footer-link-group a {
+        color: var(--brand-neutral);
+        text-decoration: none;
+        opacity: 0.85;
+      }
+
+      .footer-link-group a:hover {
+        opacity: 1;
+      }
+
+      .footer-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        font-size: 0.85rem;
+        color: var(--brand-neutral);
+        opacity: 0.75;
+        border-top: 1px solid rgba(17, 24, 39, 0.15);
+        padding-top: 1.5rem;
+      }
+
+      @media (max-width: 640px) {
+        .footer-brand {
+          flex-direction: column;
+          align-items: flex-start;
+        }
       }
     </style>
   </head>
-  <body>
-    <main class="container">
+  <body style={brandStyles || undefined}>
+    <main class="page-main">
       <slot />
     </main>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          {logoUrl && (
+            <img src={logoUrl} alt={websiteData?.brand?.logo?.alternativeText || `${siteName} logo`} class="footer-logo" loading="lazy" />
+          )}
+          <div class="footer-brand-copy">
+            <strong>{siteName}</strong>
+            {footer?.aboutText ? (
+              <div set:html={footer.aboutText}></div>
+            ) : (
+              <p>Content managed for every locale directly from Strapi. Configure footer copy in the CMS.</p>
+            )}
+          </div>
+        </div>
+
+        {footer?.linkGroups && footer.linkGroups.length > 0 && (
+          <div class="footer-links">
+            {footer.linkGroups.map(group => (
+              <div class="footer-link-group" key={group.id}>
+                {group.groupTitle && <h4>{group.groupTitle}</h4>}
+                {group.links && group.links.length > 0 && (
+                  <ul>
+                    {group.links.map(link => {
+                      const href = link.linkType === 'external_url'
+                        ? link.url || '#'
+                        : link.path || '#';
+
+                      return (
+                        <li key={link.id}>
+                          <a href={href} target={link.openInNewTab ? '_blank' : undefined} rel={link.openInNewTab ? 'noopener noreferrer' : undefined}>
+                            {link.label}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div class="footer-meta">
+          <span>© {currentYear} {siteName}. {footer?.copyrightText || 'All rights reserved.'}</span>
+          {config.isDevelopment && <span>DEV MODE</span>}
+        </div>
+      </div>
+    </footer>
   </body>
 </html>
