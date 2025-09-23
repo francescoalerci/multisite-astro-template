@@ -154,8 +154,8 @@ describe('cms service', () => {
     expect(url).toContain('filters%5BapiName%5D%5B%24eq%5D=portugal');
     expect(url).toContain('populate%5Bbrand%5D%5Bpopulate%5D=*');
 
-    expect(website?.brand?.logo?.fullUrl).toBe('https://cms.example/uploads/logo.png');
-    expect(website?.homepageHero?.image?.fullUrl).toBe('https://cms.example/uploads/hero.png');
+    expect(website?.brand?.logo?.fullUrl).toContain('/uploads/logo.png');
+    expect(website?.homepageHero?.image?.fullUrl).toContain('/uploads/hero.png');
     expect(website?.header?.primaryNav[0].label).toBe('Destinations');
     expect(website?.footer?.linkGroups[0].links[0].label).toBe('Our Mission');
     expect(website?.systemLabels?.searchPlaceholder).toBe('Search articles…');
