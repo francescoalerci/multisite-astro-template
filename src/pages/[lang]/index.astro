@@ -2,9 +2,8 @@
 import Layout from '../../layouts/Layout.astro';
 import DebugPanel from '../../components/DebugPanel.astro';
 import LanguageSelector from '../../components/LanguageSelector.astro';
-import { getWebsiteData, getArticles, getTags } from '../../services/cms';
+import { getWebsiteData, getArticles, getCategories } from '../../services/cms';
 import { isValidLanguage, getDefaultLanguage } from '../../utils/language';
-import { getMediaAssetUrl } from '../../utils/media';
 
 export async function getStaticPaths() {
   const websiteData = await getWebsiteData();
@@ -13,171 +12,99 @@ export async function getStaticPaths() {
     return [];
   }
 
-  const locales = websiteData.supportedLocales.length > 0
-    ? websiteData.supportedLocales
-    : [websiteData.defaultLocale];
-
-  return locales.map(locale => ({
+  // Generate paths for each available locale
+  return websiteData.locales.map(locale => ({
     params: { lang: locale },
   }));
 }
 
 const { lang } = Astro.params;
-const websiteData = await getWebsiteData(lang);
+const websiteData = await getWebsiteData();
 
 // Validate language parameter
-const availableLocales = websiteData?.supportedLocales?.length
-  ? websiteData.supportedLocales
-  : [websiteData?.defaultLocale || 'en'];
-
-if (!websiteData || !lang || !isValidLanguage(lang, availableLocales)) {
-  return Astro.redirect(`/${getDefaultLanguage(availableLocales, websiteData?.defaultLocale || 'en')}`);
+if (!websiteData || !lang || !isValidLanguage(lang, websiteData.locales)) {
+  return Astro.redirect(`/${getDefaultLanguage(websiteData?.locales || ['en'], websiteData?.defaultLocale || 'en')}`);
 }
 
 const articles = await getArticles(lang);
-const tags = await getTags(lang);
-
-const brandColor = websiteData.theme?.brandColor
-  || websiteData.theme?.palette?.primary
-  || '#0EA5B5';
-const logoUrl = getMediaAssetUrl(websiteData.brand?.logo);
-const faviconUrl = getMediaAssetUrl(websiteData.brand?.favicon);
-const heroImageUrl = getMediaAssetUrl(websiteData.homepageHero?.image);
-const heroAlt = websiteData.homepageHero?.alt || websiteData.header?.brandDisplayName || websiteData.name;
+const categories = await getCategories(lang);
 ---
 
-<Layout title={websiteData.header?.brandDisplayName ?? 'Home'} websiteData={websiteData} lang={lang}>
-        {websiteData ? (
-                <>
-                        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1.5rem;">
-                                <div style="display: flex; align-items: center; gap: 1rem;">
-                                        {logoUrl && (
-                                                <img
-                                                        src={logoUrl}
-                                                        alt={websiteData.brand?.logo?.alternativeText || websiteData.header?.brandDisplayName || websiteData.name}
-                                                        style="height: 64px; width: auto; border-radius: 8px;"
-                                                />
-                                        )}
-                                        <div>
-                                                <h1 style="margin: 0; font-size: 2rem; color: #111827;">{websiteData.header?.brandDisplayName || websiteData.name}</h1>
-                                                {websiteData.header?.tagline && (
-                                                        <p style="margin: 0.25rem 0 0; color: #4b5563;">{websiteData.header.tagline}</p>
-                                                )}
-                                        </div>
-                                </div>
-                                <LanguageSelector
-                                        availableLocales={availableLocales}
-                                        currentLang={lang}
-                                        currentPath={Astro.url.pathname}
-                                />
-                        </header>
+<Layout title="Home" websiteData={websiteData}>
+	{websiteData ? (
+		<>
+			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+				<div style="display: flex; align-items: center; gap: 1rem;">
+					{websiteData.logo && (
+						<img
+							src={websiteData.logo.url.startsWith('http') ? websiteData.logo.url : `https://cms.falerci.com${websiteData.logo.url}`}
+							alt={websiteData.logo.alternativeText || 'Website Logo'}
+							style="height: 60px; width: auto;"
+						/>
+					)}
+					<h1>Welcome to {websiteData.name}</h1>
+				</div>
+				<LanguageSelector
+					availableLocales={websiteData.locales}
+					currentLang={lang}
+					currentPath={Astro.url.pathname}
+				/>
+			</div>
 
-                        {heroImageUrl && (
-                                <figure style="margin: 0 0 2rem; border-radius: 16px; overflow: hidden; background: #f3f4f6;">
-                                        <img src={heroImageUrl} alt={heroAlt} style="width: 100%; height: auto; display: block;" />
-                                </figure>
-                        )}
+			<p>Site: <strong>{websiteData.apiName}</strong></p>
+			<p>Default Locale: <strong>{websiteData.defaultLocale}</strong></p>
+			<p>Available Locales: <strong>{websiteData.locales.join(', ')}</strong></p>
+			<p>Base URL: <strong>{websiteData.baseUrl}</strong></p>
+			<div style={`background-color: ${websiteData.brandColor}; color: white; padding: 1rem; border-radius: 4px; margin: 1rem 0;`}>
+				<strong>Brand Color: {websiteData.brandColor}</strong>
+			</div>
 
-                        <section style="margin-bottom: 2rem; display: grid; gap: 0.5rem;">
-                                <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-                                        <span style="font-size: 0.875rem; color: #6b7280;">Site ID</span>
-                                        <strong style="font-size: 1rem; color: #111827;">{websiteData.apiName}</strong>
-                                </div>
-                                <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-                                        <span style="font-size: 0.875rem; color: #6b7280;">Default locale</span>
-                                        <strong style="font-size: 1rem; color: #111827;">{websiteData.defaultLocale.toUpperCase()}</strong>
-                                </div>
-                                <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-                                        <span style="font-size: 0.875rem; color: #6b7280;">Supported locales</span>
-                                        <strong style="font-size: 1rem; color: #111827;">{availableLocales.map(locale => locale.toUpperCase()).join(', ')}</strong>
-                                </div>
-                                <div style={`display: inline-flex; align-items: center; gap: 0.75rem; background-color: ${brandColor}; color: white; padding: 0.75rem 1rem; border-radius: 999px; width: fit-content;`}>
-                                        <span style="font-weight: 600;">Brand color</span>
-                                        <span style="font-family: monospace;">{brandColor}</span>
-                                </div>
-                        </section>
+			<h2>Categories</h2>
+			{categories.length > 0 ? (
+				<div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 2rem 0;">
+					{categories.map((category) => (
+						<div style={`display: inline-block; background-color: ${websiteData.brandColor}; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; text-decoration: none;`}>
+							{category.name}
+						</div>
+					))}
+				</div>
+			) : (
+				<p style="color: #6b7280; font-style: italic;">No categories found for this website.</p>
+			)}
 
-                        <section style="margin-bottom: 2.5rem;">
-                                <h2 style="margin: 0 0 1rem; font-size: 1.5rem; color: #111827;">Tags</h2>
-                                {tags.length > 0 ? (
-                                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                                                {tags.map(tag => (
-                                                        <span style={`display: inline-flex; align-items: center; gap: 0.5rem; background: ${brandColor}15; color: ${brandColor}; padding: 0.5rem 0.75rem; border-radius: 999px; font-size: 0.875rem; border: 1px solid ${brandColor}33;`}>
-                                                                #{tag.slug}
-                                                        </span>
-                                                ))}
-                                        </div>
-                                ) : (
-                                        <p style="color: #6b7280; font-style: italic;">No tags found for this website.</p>
-                                )}
-                        </section>
+			<h2>Latest Articles</h2>
+			{articles.length > 0 ? (
+				<div style="display: grid; gap: 1.5rem; margin: 2rem 0;">
+					{articles.map((article) => (
+						<article style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; background: #f9fafb;">
+							<h3 style="margin: 0 0 0.5rem; color: #111827;">
+								<a href={`/articles/${article.slug}`} style={`color: ${websiteData.brandColor}; text-decoration: none;`}>
+									{article.title}
+								</a>
+							</h3>
+							{article.excerpt && (
+								<p style="color: #6b7280; margin: 0.5rem 0 1rem; line-height: 1.5;">
+									{article.excerpt}
+								</p>
+							)}
+							<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; color: #9ca3af;">
+								<span>Updated: {new Date(article.updatedAt).toLocaleDateString()}</span>
+							</div>
+						</article>
+					))}
+				</div>
+			) : (
+				<p style="color: #6b7280; font-style: italic;">No articles found for this website.</p>
+			)}
+		</>
+	) : (
+		<>
+			<h1>Welcome to Astro</h1>
+			<p style="color: #d97706; background: #fef3c7; padding: 1rem; border-radius: 4px;">
+				Unable to load website data from CMS. Please check your environment variables.
+			</p>
+		</>
+	)}
 
-                        <section>
-                                <h2 style="margin: 0 0 1rem; font-size: 1.5rem; color: #111827;">Latest Articles</h2>
-                                {articles.length > 0 ? (
-                                        <div style="display: grid; gap: 1.5rem; margin: 2rem 0;">
-                                                {articles.map((article) => (
-                                                        <article style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.75rem; background: #ffffff; box-shadow: 0 10px 25px -15px rgba(15, 23, 42, 0.35);">
-                                                                <h3 style="margin: 0 0 0.75rem; color: #111827; font-size: 1.25rem;">
-                                                                        <a href={`/articles/${article.slug}`} style={`color: ${brandColor}; text-decoration: none; font-weight: 600;`}>
-                                                                                {article.title}
-                                                                        </a>
-                                                                </h3>
-                                                                {article.summary && (
-                                                                        <p style="color: #4b5563; margin: 0 0 1rem; line-height: 1.6;">
-                                                                                {article.summary}
-                                                                        </p>
-                                                                )}
-                                                                <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; font-size: 0.875rem; color: #6b7280;">
-                                                                        <span>Updated: {new Date(article.updatedAt).toLocaleDateString()}</span>
-                                                                        {typeof article.readingTime === 'number' && (
-                                                                                <span>⏱ {article.readingTime} min read</span>
-                                                                        )}
-                                                                </div>
-                                                        </article>
-                                                ))}
-                                        </div>
-                                ) : (
-                                        <p style="color: #6b7280; font-style: italic;">No articles found for this website.</p>
-                                )}
-                        </section>
-
-                        {websiteData.systemLabels && (
-                                <section style="margin-top: 2.5rem; border-top: 1px solid #e5e7eb; padding-top: 2rem;">
-                                        <h2 style="margin: 0 0 1rem; font-size: 1.25rem; color: #111827;">System labels</h2>
-                                        <ul style="margin: 0; padding-left: 1.25rem; color: #4b5563; display: grid; gap: 0.5rem;">
-                                                {websiteData.systemLabels.searchPlaceholder && (
-                                                        <li><strong>Search:</strong> {websiteData.systemLabels.searchPlaceholder}</li>
-                                                )}
-                                                {websiteData.systemLabels.readMoreLabel && (
-                                                        <li><strong>Read more:</strong> {websiteData.systemLabels.readMoreLabel}</li>
-                                                )}
-                                                {websiteData.systemLabels.backToHomeLabel && (
-                                                        <li><strong>Back to home:</strong> {websiteData.systemLabels.backToHomeLabel}</li>
-                                                )}
-                                        </ul>
-                                </section>
-                        )}
-                </>
-        ) : (
-                <>
-                        <h1>Welcome to Astro</h1>
-                        <p style="color: #d97706; background: #fef3c7; padding: 1rem; border-radius: 4px;">
-                                Unable to load website data from CMS. Please check your environment variables.
-                        </p>
-                </>
-        )}
-
-        <DebugPanel
-                websiteData={websiteData}
-                articles={articles}
-                additionalInfo={{
-                        'Current Language': lang,
-                        'Tags': tags.length,
-                        'Tag Names': tags.map(tag => tag.slug).join(', '),
-                        'Logo': logoUrl ? 'Available' : 'Not set',
-                        'Favicon': faviconUrl ? 'Available' : 'Not set',
-                        'Hero Image': heroImageUrl ? 'Available' : 'Not set',
-                }}
-        />
+	<DebugPanel websiteData={websiteData} articles={articles} additionalInfo={{ "Current Language": lang, "Categories": categories.length, "Category Names": categories.map(c => c.name).join(", "), "Logo": websiteData?.logo ? "Available" : "Not set", "Favicon": websiteData?.favicon ? "Available" : "Not set" }} />
 </Layout>

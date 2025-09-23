@@ -65,32 +65,20 @@ const httpRequests = getHttpRequests();
             <strong style="color: #a78bfa; font-size: 0.7rem;">{websiteData.name}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
-            <span style="color: #d1d5db;">Current Locale:</span>
-            <strong style="color: #fbbf24;">{websiteData.locale}</strong>
+            <span style="color: #d1d5db;">Base URL:</span>
+            <strong style="color: #34d399; font-size: 0.65rem;">{websiteData.baseUrl}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
-            <span style="color: #d1d5db;">Default Locale:</span>
+            <span style="color: #d1d5db;">Locale:</span>
             <strong style="color: #fbbf24;">{websiteData.defaultLocale}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
-            <span style="color: #d1d5db;">Supported Locales:</span>
-            <strong style="color: #f87171; font-size: 0.7rem;">{websiteData.supportedLocales.join(', ')}</strong>
+            <span style="color: #d1d5db;">Locales:</span>
+            <strong style="color: #f87171; font-size: 0.7rem;">{websiteData.locales.join(', ')}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
-            <span style="color: #d1d5db;">Theme Color:</span>
-            <strong style={`color: ${websiteData.theme?.brandColor || '#fbbf24'}; font-size: 0.7rem;`}>
-              {websiteData.theme?.brandColor || 'N/A'}
-            </strong>
-          </div>
-          {websiteData.seoDefaults?.metaTitle && (
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #d1d5db;">SEO Title:</span>
-              <strong style="color: #60a5fa; font-size: 0.65rem;">{websiteData.seoDefaults.metaTitle}</strong>
-            </div>
-          )}
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: #d1d5db;">Localizations:</span>
-            <strong style="color: #34d399; font-size: 0.7rem;">{websiteData.localizations.length}</strong>
+            <span style="color: #d1d5db;">Brand:</span>
+            <strong style={`color: ${websiteData.brandColor}; font-size: 0.7rem;`}>{websiteData.brandColor}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
             <span style="color: #d1d5db;">Updated:</span>

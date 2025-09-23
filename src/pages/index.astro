@@ -5,7 +5,7 @@ import { getDefaultLanguage } from '../utils/language';
 const websiteData = await getWebsiteData();
 
 if (websiteData) {
-  const defaultLang = getDefaultLanguage(websiteData.supportedLocales, websiteData.defaultLocale);
+  const defaultLang = getDefaultLanguage(websiteData.locales, websiteData.defaultLocale);
   return Astro.redirect(`/${defaultLang}`);
 }
 

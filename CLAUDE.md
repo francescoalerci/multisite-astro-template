@@ -72,39 +72,19 @@ src/
 ```json
 {
   "data": [{
-    "id": 33,
+    "id": 3,
     "name": "Portugal Travel Guide",
     "apiName": "portugal",
+    "baseUrl": "https://portugal.yourbrand.com",
+    "locales": ["en", "pt", "es", "fr", "it"],
     "defaultLocale": "en",
-    "supportedLocales": ["en", "it"],
-    "locale": "en",
-    "brand": {
-      "logo": { "url": "/uploads/logo.png" },
-      "favicon": { "url": "/uploads/favicon.png" }
-    },
-    "theme": {
-      "brandColor": "#FF8A00"
-    },
-    "seoDefaults": {
-      "metaTitle": "Portugal Travel Guide - Your Travel Companion",
-      "metaDescription": "Plan your trip to Portugal with curated itineraries and local insights."
-    },
-    "header": {
-      "brandDisplayName": "Portugal Travel Guide",
-      "tagline": "Discover Portugal, One Journey at a Time"
-    },
-    "footer": {
-      "aboutText": "Portugal Travel Guide helps travellers explore the country with practical advice."
-    },
-    "systemLabels": {
-      "searchPlaceholder": "Search articles…"
-    }
+    "brandColor": "#046A38"
   }]
 }
 ```
 
 ### Articles Response
-Returns array of articles filtered by website apiName, sorted by updatedAt descending. Each article now includes localized `summary`, `body`, `readingTime`, related `tags`, and optional `seo` metadata.
+Returns array of articles filtered by website apiName, sorted by updatedAt descending.
 
 ---
 
