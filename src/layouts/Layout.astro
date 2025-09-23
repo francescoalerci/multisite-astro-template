@@ -1,29 +1,32 @@
 ---
+import type { Website } from '../services/cms';
+import { getMediaAssetUrl } from '../utils/media';
+
 interface Props {
   title?: string;
-  websiteData?: {
-    name?: string;
-    favicon?: {
-      url: string;
-      alternativeText: string;
-    };
-  };
+  websiteData?: Website | null;
+  lang?: string;
 }
 
-const { title, websiteData } = Astro.props;
-const siteName = websiteData?.name || 'Astro Site';
-const pageTitle = title ? `${title} | ${siteName}` : siteName;
-const faviconUrl = websiteData?.favicon?.url ? (websiteData.favicon.url.startsWith('http') ? websiteData.favicon.url : `https://cms.falerci.com${websiteData.favicon.url}`) : '/favicon.svg';
+const { title, websiteData, lang } = Astro.props;
+const siteName = websiteData?.header?.brandDisplayName || websiteData?.name || 'Astro Site';
+const defaultTitle = websiteData?.seoDefaults?.metaTitle || siteName;
+const pageTitle = title ? `${title} | ${siteName}` : defaultTitle;
+const metaDescription = websiteData?.seoDefaults?.metaDescription || `Content from ${siteName}`;
+const htmlLang = lang || websiteData?.locale || websiteData?.defaultLocale || 'en';
+const faviconUrl = getMediaAssetUrl(websiteData?.brand?.favicon) || '/favicon.svg';
+const themeColor = websiteData?.theme?.brandColor || websiteData?.theme?.palette?.primary || undefined;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={htmlLang}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="description" content="Astro description" />
+    <meta name="description" content={metaDescription} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href={faviconUrl} />
     <meta name="generator" content={Astro.generator} />
+    {themeColor && <meta name="theme-color" content={themeColor} />}
     <title>{pageTitle}</title>
     <style>
       body {
