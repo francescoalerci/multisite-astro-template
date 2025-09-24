@@ -163,6 +163,30 @@ const relatedArticlesDescription = tagline || 'Discover more stories from our ed
 
 const seoTitle = article?.seo?.metaTitle ?? article?.title ?? brandDisplayName;
 const seoDescription = article?.seo?.metaDescription ?? article?.summary ?? tagline;
+
+// SEO data for Layout component
+const articleForSEO = article ? {
+  title: article.title,
+  summary: article.summary,
+  publishedAt: article.publishedAt,
+  updatedAt: article.updatedAt,
+  author: article.author,
+  tags: article.tags,
+  slug: article.slug
+} : undefined;
+
+const coverImageUrl = article?.coverImage?.fullUrl
+  ? resolveMediaUrl(article.coverImage.fullUrl)
+  : article?.coverImage?.url
+    ? resolveMediaUrl(article.coverImage.url)
+    : null;
+
+// Breadcrumbs for structured data
+const breadcrumbs = article ? [
+  { name: brandDisplayName, url: `/${activeLocale}` },
+  { name: getLocalizedSegment(activeLocale, 'articles'), url: `/${activeLocale}/${getLocalizedSegment(activeLocale, 'articles')}` },
+  { name: article.title, url: `/${activeLocale}/${requestedSegment}/${article.slug}` }
+] : undefined;
 const summaryFallback = websiteData?.seoDefaults?.metaDescription || 'Full story preview coming soon. Check back shortly for the highlights.';
 
 const primaryNav: NavMenuItem[] = websiteData?.header?.primaryNav ?? [];
@@ -190,7 +214,15 @@ const navLinks = primaryNav.length > 0
     }));
 ---
 
-<Layout title={seoTitle} description={seoDescription} websiteData={websiteData} currentLocale={activeLocale}>
+<Layout
+  title={seoTitle}
+  description={seoDescription}
+  websiteData={websiteData}
+  currentLocale={activeLocale}
+  image={coverImageUrl}
+  article={articleForSEO}
+  breadcrumbs={breadcrumbs}
+>
   <style define:vars={{
     background: backgroundColor,
     text: textColor,

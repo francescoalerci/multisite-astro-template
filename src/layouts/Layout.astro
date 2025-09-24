@@ -7,9 +7,20 @@ interface Props {
   description?: string;
   websiteData?: Website | null;
   currentLocale?: string;
+  image?: string;
+  article?: {
+    title: string;
+    summary?: string;
+    publishedAt?: string;
+    updatedAt?: string;
+    author?: { name: string };
+    tags?: { name: string }[];
+    slug: string;
+  };
+  breadcrumbs?: Array<{ name: string; url: string }>;
 }
 
-const { title, description, websiteData, currentLocale } = Astro.props as Props;
+const { title, description, websiteData, currentLocale, image, article, breadcrumbs } = Astro.props as Props;
 const siteName = websiteData?.header?.brandDisplayName || websiteData?.name || 'Astro Site';
 const pageTitle = title ? `${title} | ${siteName}` : siteName;
 const activeLocale = currentLocale || websiteData?.locale || websiteData?.defaultLocale || 'en';
@@ -73,6 +84,68 @@ const metaDescription = description ?? (websiteData?.seoDefaults?.metaDescriptio
 const footerContent = websiteData?.footer;
 const footerLinkGroups: NavLinkGroup[] = footerContent?.linkGroups ?? [];
 
+// SEO and Social Media Variables - No hardcoded URLs!
+const siteUrl = websiteData?.baseUrl || Astro.site?.toString() || `${Astro.url.protocol}//${Astro.url.host}`;
+const canonicalUrl = new URL(Astro.url.pathname, siteUrl).toString();
+const supportedLocales = websiteData?.supportedLocales || [activeLocale];
+const defaultLocale = websiteData?.defaultLocale || activeLocale;
+
+// Open Graph and Twitter Card image
+const socialImage = image || getAssetUrl(websiteData?.brand?.logo) || `${siteUrl}/images/og-default.jpg`;
+
+// Structured Data
+const websiteStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": siteName,
+  "url": siteUrl,
+  "description": metaDescription,
+  "inLanguage": activeLocale,
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": `${siteUrl}/${activeLocale}/search?q={search_term_string}`,
+    "query-input": "required name=search_term_string"
+  }
+};
+
+const breadcrumbStructuredData = breadcrumbs && breadcrumbs.length > 0 ? {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": breadcrumbs.map((crumb, index) => ({
+    "@type": "ListItem",
+    "position": index + 1,
+    "name": crumb.name,
+    "item": new URL(crumb.url, siteUrl).toString()
+  }))
+} : null;
+
+const articleStructuredData = article ? {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": article.title,
+  "description": article.summary || metaDescription,
+  "image": socialImage,
+  "datePublished": article.publishedAt,
+  "dateModified": article.updatedAt || article.publishedAt,
+  "author": article.author ? {
+    "@type": "Person",
+    "name": article.author.name
+  } : undefined,
+  "publisher": {
+    "@type": "Organization",
+    "name": siteName,
+    "logo": {
+      "@type": "ImageObject",
+      "url": getAssetUrl(websiteData?.brand?.logo) || `${siteUrl}/images/logo.png`
+    }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": canonicalUrl
+  },
+  "keywords": article.tags?.map(tag => tag.name).join(', ') || undefined
+} : null;
+
 function resolveFooterHref(item: NavMenuItem, locale: string): string {
   if (item.linkType === 'external_url') {
     return item.url || '#';
@@ -93,6 +166,79 @@ function resolveFooterHref(item: NavMenuItem, locale: string): string {
     <link rel="icon" href={faviconUrl} />
     <meta name="generator" content={Astro.generator} />
     <title>{pageTitle}</title>
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href={canonicalUrl} />
+
+    <!-- Hreflang tags for multilingual SEO -->
+    {article ? (
+      // For articles, only include hreflang if the article exists in that language
+      // For now, we'll be conservative and only show the current language
+      <link rel="alternate" hreflang={activeLocale} href={canonicalUrl} />
+    ) : (
+      // For non-article pages (homepage, etc.), show all supported locales
+      <>
+        {supportedLocales.map(locale => {
+          const hrefLangUrl = canonicalUrl.replace(`/${activeLocale}/`, `/${locale}/`).replace(`/${activeLocale}`, `/${locale}`);
+          return <link rel="alternate" hreflang={locale} href={hrefLangUrl} />;
+        })}
+        <link rel="alternate" hreflang="x-default" href={canonicalUrl.replace(`/${activeLocale}/`, `/${defaultLocale}/`).replace(`/${activeLocale}`, `/${defaultLocale}`)} />
+      </>
+    )}
+
+    <!-- Open Graph meta tags -->
+    <meta property="og:type" content={article ? "article" : "website"} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={metaDescription} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:locale" content={activeLocale.replace('-', '_')} />
+    <meta property="og:image" content={socialImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={`${siteName} - ${title || siteName}`} />
+
+    {article && (
+      <>
+        <meta property="article:published_time" content={article.publishedAt} />
+        <meta property="article:modified_time" content={article.updatedAt || article.publishedAt} />
+        {article.author && <meta property="article:author" content={article.author.name} />}
+        {article.tags && article.tags.map(tag => (
+          <meta property="article:tag" content={tag.name} />
+        ))}
+      </>
+    )}
+
+    <!-- Twitter Card meta tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={metaDescription} />
+    <meta name="twitter:image" content={socialImage} />
+    <meta name="twitter:image:alt" content={`${siteName} - ${title || siteName}`} />
+
+    <!-- Additional SEO meta tags -->
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="language" content={activeLocale} />
+    {article && article.author && <meta name="author" content={article.author.name} />}
+
+    <!-- Performance optimizations -->
+    {config.cmsUrl && (
+      <>
+        <link rel="preconnect" href={new URL(config.cmsUrl).origin} />
+        <link rel="dns-prefetch" href={new URL(config.cmsUrl).origin} />
+      </>
+    )}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json" set:html={JSON.stringify(websiteStructuredData)} />
+    {breadcrumbStructuredData && (
+      <script type="application/ld+json" set:html={JSON.stringify(breadcrumbStructuredData)} />
+    )}
+    {articleStructuredData && (
+      <script type="application/ld+json" set:html={JSON.stringify(articleStructuredData)} />
+    )}
     <style>
       :root {
         color-scheme: light;

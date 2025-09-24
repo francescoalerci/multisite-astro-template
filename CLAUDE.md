@@ -36,6 +36,15 @@ If you (Claude) generate or modify code, keep it simple, fast, and maintainable.
 - **CMS-driven branding** with dynamic logos, favicons, and brand colors
 - **Responsive design system** with CSS custom properties integration
 - **Category/tags integration** for content organization
+- **🚀 COMPREHENSIVE SEO SYSTEM** with enterprise-level features:
+  - **Canonical URLs** - Dynamic canonical tags to prevent duplicate content
+  - **Hreflang Tags** - Smart multilingual SEO with language-aware implementation
+  - **Open Graph & Twitter Cards** - Complete social media optimization
+  - **Structured Data (JSON-LD)** - WebSite, Article, and BreadcrumbList schemas
+  - **Dynamic Robots.txt** - AI-optimized with bot-specific rules
+  - **XML Sitemaps** - Multi-locale, auto-updating sitemaps with proper priorities
+  - **Performance Optimization** - Preconnect links and resource hints
+  - **Zero Hardcoded URLs** - Fully dynamic URL generation from CMS or request context
 
 ### 🔄 Current Architecture
 - **Astro** basic setup with component-based architecture
@@ -46,6 +55,7 @@ If you (Claude) generate or modify code, keep it simple, fast, and maintainable.
 - **Internationalization System** with dynamic routing and language switching
 - **Brand-aware Design System** with CMS-driven colors and assets
 - **Component-based UI** with reusable, themeable components
+- **Enterprise SEO Architecture** with dynamic meta generation and search optimization
 
 ---
 
@@ -371,3 +381,117 @@ const articles = await getArticles();
 - All content filtered by `WEBSITE_API_NAME` for multi-site deployment
 - Localized content automatically filtered by language parameter
 - CMS-driven branding ensures consistent visual identity across deployments
+
+---
+
+## 🚀 SEO & Performance Optimization
+
+### Enterprise SEO Features
+
+This template includes a comprehensive SEO system designed to achieve high search engine scores:
+
+#### **Canonical URLs & Duplicate Content Prevention**
+- **Dynamic canonical tags** on every page prevent duplicate content penalties
+- **Smart URL resolution** uses CMS `baseUrl` → `Astro.site` → request URL fallback
+- **Zero hardcoded URLs** - fully dynamic URL generation
+
+#### **Multilingual SEO (Hreflang)**
+- **Language-aware hreflang tags** prevent SEO issues with missing translations
+- **Homepage**: Shows all supported locales with proper language targeting
+- **Articles**: Conservative approach - only current language to avoid 404s
+- **x-default** fallback points to default locale
+
+#### **Social Media Optimization**
+- **Open Graph tags**: Complete OG implementation for Facebook, LinkedIn
+- **Twitter Cards**: `summary_large_image` cards with proper dimensions
+- **Dynamic images**: Uses article cover images or hero images automatically
+- **Article metadata**: Publication dates, authors, tags for rich social previews
+
+#### **Structured Data (Schema.org)**
+- **WebSite Schema**: Site-wide information with search functionality
+- **Article Schema**: Complete article metadata for rich snippets
+- **BreadcrumbList Schema**: Navigation hierarchy for better UX
+- **JSON-LD format** for optimal search engine compatibility
+
+#### **Search Engine Crawling**
+- **Dynamic robots.txt**:
+  - Uses CMS base URL automatically
+  - **AI-optimized**: Blocks training crawlers (ChatGPT, Claude, etc.)
+  - **SEO-friendly**: Allows Google, Bing, Facebook, Twitter bots
+  - **Rate limiting**: 1-second crawl delay for aggressive bots
+- **XML Sitemaps**:
+  - **Multi-locale sitemaps**: Separate sitemap per language
+  - **Auto-updating**: New articles appear automatically
+  - **Smart priorities**: Homepage (1.0) > Articles (0.7) > Tags (0.5)
+  - **Proper timestamps**: Uses actual article update dates
+
+#### **Performance Optimizations**
+- **Preconnect links**: CMS, Google Fonts for faster loading
+- **DNS prefetch**: External resources resolved early
+- **Proper caching headers**: Robots (24h), Sitemaps (1h) cache
+- **Efficient meta tag generation**: Minimal overhead, maximum SEO impact
+
+### SEO Implementation Files
+
+```
+src/
+├── layouts/Layout.astro           # Enhanced with comprehensive SEO meta tags
+├── pages/
+│   ├── robots.txt.ts             # Dynamic, AI-optimized robots.txt
+│   ├── sitemap-index.xml.ts      # Multi-locale sitemap index
+│   └── sitemap-[locale].xml.ts   # Per-language sitemaps
+└── utils/page.server.ts          # SEO data processing utilities
+```
+
+### Usage Examples
+
+**Homepage with SEO**:
+```astro
+<Layout
+  title="Portugal Travel Guide"
+  description="Plan your trip to Portugal..."
+  websiteData={websiteData}
+  currentLocale="en"
+  image={heroImage}
+>
+```
+
+**Article with Full SEO**:
+```astro
+<Layout
+  title={article.title}
+  description={article.summary}
+  websiteData={websiteData}
+  currentLocale="en"
+  image={coverImage}
+  article={{
+    title: article.title,
+    summary: article.summary,
+    publishedAt: article.publishedAt,
+    author: article.author,
+    tags: article.tags,
+    slug: article.slug
+  }}
+  breadcrumbs={[
+    { name: "Home", url: "/en" },
+    { name: "Articles", url: "/en/articles" },
+    { name: article.title, url: `/en/articles/${article.slug}` }
+  ]}
+>
+```
+
+### SEO Testing & Validation
+
+**Development Testing**:
+- Visit `http://localhost:4321/robots.txt` to verify robots.txt generation
+- Check `http://localhost:4321/sitemap-index.xml` for sitemap structure
+- Use browser dev tools to inspect meta tags and structured data
+- Test social sharing with Facebook Debugger / Twitter Card Validator
+
+**Production Validation**:
+- Google Search Console: Submit sitemaps, monitor indexing
+- Rich Results Test: Validate structured data implementation
+- PageSpeed Insights: Verify performance optimizations
+- Social debuggers: Test Open Graph and Twitter Card rendering
+
+This SEO system is designed to achieve enterprise-level search engine optimization while maintaining flexibility for multi-site deployment.

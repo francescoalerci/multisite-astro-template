@@ -6,8 +6,8 @@ import {
   type Website,
   type Article,
   type Tag,
-} from '../../services/cms';
-import { getDefaultLanguage, isValidLanguage } from '../../utils/language';
+} from '../services/cms';
+import { getDefaultLanguage, isValidLanguage } from './language';
 
 export async function generateStaticPaths() {
   try {
