@@ -9,9 +9,9 @@ import { config } from '../../config';
 import type { NavMenuItem } from '../../services/cms';
 import { isValidLanguage, getDefaultLanguage } from '../../utils/language';
 import { buildLocalizedUrl } from '../../utils/urlSegments';
-import { generateStaticPaths, loadHomepage } from './page.server';
+import { generateStaticPaths, loadHomepage } from '../../utils/page.server';
 
-export { generateStaticPaths as getStaticPaths } from './page.server';
+export { generateStaticPaths as getStaticPaths } from '../../utils/page.server';
 
 const { lang } = Astro.params;
 const requestedLocale = typeof lang === 'string' ? lang : undefined;
@@ -63,6 +63,9 @@ const backToHomeLabel = websiteData?.systemLabels?.backToHomeLabel ?? 'Back to h
 const seoTitle = websiteData?.seoDefaults?.metaTitle ?? brandDisplayName;
 const seoDescription = websiteData?.seoDefaults?.metaDescription ?? tagline;
 
+// Homepage SEO image - use hero image or brand logo
+const seoImage = heroBackgroundUrl || brandLogoUrl;
+
 const sectionTitle = seoTitle;
 const sectionSubtitle = seoDescription;
 const summaryFallback = seoDescription || 'Full story preview coming soon. Check back shortly for the highlights.';
@@ -92,7 +95,7 @@ const navLinks = primaryNav.length > 0
 
 ---
 
-<Layout title={seoTitle} websiteData={websiteData} currentLocale={activeLocale}>
+<Layout title={seoTitle} description={seoDescription} websiteData={websiteData} currentLocale={activeLocale} image={seoImage}>
 
 	<style define:vars={{
 		background: backgroundColor,

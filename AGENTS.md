@@ -1,7 +1,7 @@
 # Repository Guidelines — multisite-astro-template
 
 ## Purpose
-This repository is a **multisite Astro template** for country/city travel sites. One codebase, many deployments. Each deployment is configured by environment variables and fetches content from a headless CMS.
+This repository is a **multisite Astro template** for country/city travel sites. One codebase, many deployments. Each deployment is configured by environment variables and fetches content from a headless CMS. The template includes **enterprise-level SEO optimization** with comprehensive meta tags, structured data, and performance features.
 
 ## Project Structure & Module Organization
 The Astro app lives under `src`, with route files in `src/pages` and localized content served from `src/pages/[lang]/index.astro`. Shared UI components (PascalCase naming) live in `src/components`, long-form layouts in `src/layouts`, and CMS/API accessors in `src/services/cms.ts`. Utilities (camelCase naming) such as locale helpers belong in `src/utils`, while static assets reside in `public`. Build and TypeScript settings are centralized in `astro.config.mjs` and `tsconfig.json`.
@@ -66,6 +66,38 @@ The Vitest suite currently covers locale utilities, the CMS service, the localiz
 
 **Optional:**
 - `NODE_ENV`: Set to `development` to enable debug panel and HTTP tracking
+
+## 🚀 SEO & Performance System
+
+### Enterprise SEO Features
+This template includes comprehensive SEO optimization designed for high search engine performance:
+
+**Core SEO Components:**
+- **Canonical URLs**: Dynamic canonical tags prevent duplicate content penalties
+- **Multilingual Hreflang**: Smart language-aware implementation avoiding 404s
+- **Social Media**: Complete Open Graph and Twitter Cards with dynamic images
+- **Structured Data**: WebSite, Article, and BreadcrumbList schemas (JSON-LD)
+- **Search Crawling**: Dynamic robots.txt with AI crawler blocking, multi-locale XML sitemaps
+- **Performance**: Preconnect links, proper caching headers, zero hardcoded URLs
+
+**SEO File Structure:**
+```
+src/
+├── layouts/Layout.astro           # Enhanced with comprehensive SEO meta tags
+├── pages/
+│   ├── robots.txt.ts             # Dynamic, AI-optimized robots.txt
+│   ├── sitemap-index.xml.ts      # Multi-locale sitemap index
+│   └── sitemap-[locale].xml.ts   # Per-language sitemaps
+└── utils/page.server.ts          # SEO data processing utilities
+```
+
+**URL Resolution Priority**: `websiteData.baseUrl` → `Astro.site` → `${url.protocol}//${url.host}`
+
+**Robots.txt AI Optimization**: Blocks ChatGPT, Claude, GPTBot, PerplexityBot while allowing Google, Bing, social media crawlers.
+
+**Dynamic Sitemaps**: Auto-updating with proper priorities (Homepage: 1.0, Articles: 0.7, Tags: 0.5) and real article timestamps.
+
+---
 
 ## API Endpoints
 1. **Website Data**: `GET /api/websites?filters[apiName][$eq]={WEBSITE_API_NAME}&populate=*`
